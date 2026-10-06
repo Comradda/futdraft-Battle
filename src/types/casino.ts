@@ -27,8 +27,11 @@ export interface UserProfile {
   id: string;
   name: string;
   avatar: string;
+  photoUrl?: string; // Real uploaded avatar photo in base64 / data URL
   bankroll: number;
   weeklyScore: number;
+  lastDailyRewardDate?: string; // YYYY-MM-DD
+  dailyStreak?: number; // 1-7 days streak
   tableTheme: TableTheme;
   cardBackTheme: CardBackTheme;
   crupierPersonality: PersonalityType;
@@ -47,9 +50,11 @@ export interface LeaderboardPlayer {
   id: string;
   name: string;
   avatar: string;
+  photoUrl?: string;
   weeklyScore: number;
   badge?: string;
   isCurrentUser?: boolean;
+  isPeer?: boolean;
 }
 
 // Standard 52-card Deck Types

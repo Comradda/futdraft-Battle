@@ -930,9 +930,9 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col bg-gradient-to-b ${getTableThemeClasses(
+      className={`relative w-full max-w-full h-full flex flex-col bg-gradient-to-b ${getTableThemeClasses(
         profile.tableTheme
-      )} overflow-hidden select-none safe-top safe-bottom text-white`}
+      )} overflow-hidden overflow-x-hidden select-none safe-top safe-bottom text-white`}
     >
       {/* ========================================================
           TOP APP BAR (Casino VIP Header)

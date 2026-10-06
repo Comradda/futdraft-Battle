@@ -5,6 +5,9 @@ export interface MultiplayerPlayer {
   id: string;
   name: string;
   avatar: string;
+  photoUrl?: string;
+  bankroll?: number;
+  weeklyScore?: number;
   isHost: boolean;
 }
 
@@ -73,7 +76,7 @@ class MultiplayerManager {
   /**
    * Host creates a room with a 4 or 5 digit code
    */
-  public async createRoom(player: { id: string; name: string; avatar: string }): Promise<string> {
+  public async createRoom(player: Partial<MultiplayerPlayer> & { id: string; name: string; avatar: string }): Promise<string> {
     this.disconnect();
     this.isHost = true;
     this.localPlayer = { ...player, isHost: true };
@@ -113,7 +116,7 @@ class MultiplayerManager {
   /**
    * Guest joins an existing room
    */
-  public async joinRoom(code: string, player: { id: string; name: string; avatar: string }): Promise<void> {
+  public async joinRoom(code: string, player: Partial<MultiplayerPlayer> & { id: string; name: string; avatar: string }): Promise<void> {
     this.disconnect();
     this.isHost = false;
     this.roomCode = code.trim().toUpperCase();
@@ -150,12 +153,25 @@ class MultiplayerManager {
     });
   }
 
+  public syncLocalPlayer(updated: Partial<MultiplayerPlayer>) {
+    if (this.localPlayer) {
+      this.localPlayer = { ...this.localPlayer, ...updated };
+      this.send({
+        type: 'HANDSHAKE',
+        senderId: this.localPlayer.id,
+        senderName: this.localPlayer.name,
+        payload: this.localPlayer,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
   private setupConnection(conn: DataConnection) {
     this.connection = conn;
 
     conn.on('open', () => {
       this.setStatus('connected');
-      // Send handshake
+      // Send handshake with full player details
       this.send({
         type: 'HANDSHAKE',
         senderId: this.localPlayer?.id || 'anon',
@@ -168,7 +184,12 @@ class MultiplayerManager {
     conn.on('data', (data) => {
       const msg = data as MultiplayerMessage;
       if (msg.type === 'HANDSHAKE' && msg.payload) {
-        this.remotePlayer = msg.payload as MultiplayerPlayer;
+        this.remotePlayer = { ...(this.remotePlayer || {}), ...(msg.payload as MultiplayerPlayer) };
+        try {
+          localStorage.setItem('casino_peer_player', JSON.stringify(this.remotePlayer));
+        } catch {
+          // ignore quota error
+        }
       }
       this.messageListeners.forEach((fn) => fn(msg));
     });

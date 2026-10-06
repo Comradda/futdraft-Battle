@@ -100,20 +100,33 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     )}
                   </div>
 
-                  <div className="w-7 h-7 rounded-full bg-neutral-700 border border-white/20 flex items-center justify-center text-[10px] font-black text-amber-300">
-                    {player.avatar}
+                  <div className="w-8 h-8 rounded-full bg-neutral-700 border border-amber-400/40 flex items-center justify-center text-[10px] font-black text-amber-300 overflow-hidden shrink-0">
+                    {player.photoUrl ? (
+                      <img
+                        src={player.photoUrl}
+                        alt={player.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{player.avatar}</span>
+                    )}
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`text-xs font-bold leading-tight ${
-                          player.isCurrentUser ? 'text-amber-300' : 'text-neutral-100'
+                          player.isCurrentUser ? 'text-amber-300' : player.isPeer ? 'text-emerald-300 font-extrabold' : 'text-neutral-100'
                         }`}
                       >
                         {player.name}
                       </span>
-                      {player.badge && (
+                      {player.isPeer && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-400/40">
+                          Hermano
+                        </span>
+                      )}
+                      {player.badge && !player.isPeer && (
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-neutral-300 font-medium">
                           {player.badge}
                         </span>

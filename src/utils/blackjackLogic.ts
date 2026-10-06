@@ -56,13 +56,23 @@ export function createShoe(deckCount: number = 6): StandardCard[] {
 }
 
 /**
- * Fisher-Yates array shuffle
+ * Fisher-Yates array shuffle with Cryptographically Secure Pseudo-Random Number Generator (CSPRNG)
+ * Garantiza azar genuino de casino (sin patrones, sin trampas, entropía de grado criptográfico).
  */
 export function shuffleShoe(shoe: StandardCard[]): StandardCard[] {
   const deck = [...shoe];
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    const randomBuffer = new Uint32Array(deck.length);
+    window.crypto.getRandomValues(randomBuffer);
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor((randomBuffer[i] / (0xffffffff + 1)) * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+  } else {
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
   }
   return deck;
 }

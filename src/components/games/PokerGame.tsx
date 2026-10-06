@@ -537,7 +537,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col justify-between overflow-hidden table-felt-${userProfile.tableTheme} safe-top safe-bottom text-white select-none`}
+      className={`relative w-full max-w-full h-full flex flex-col justify-between overflow-hidden overflow-x-hidden table-felt-${userProfile.tableTheme} safe-top safe-bottom text-white select-none`}
     >
       {/* Top Header */}
       <header className="px-3 py-2 flex items-center justify-between border-b border-white/10 bg-black/40 backdrop-blur-md z-30">

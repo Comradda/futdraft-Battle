@@ -21,6 +21,10 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
   const dragStateRef = useRef<DragState | null>(null);
   dragStateRef.current = dragState;
 
+  // Timestamps to prevent mobile touch/mouse ghost event duplication
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastAddRef = useRef<number>(0);
+
   const chipColors: Record<number, { bg: string; border: string; text: string }> = {
     10: { bg: 'from-blue-600 to-blue-900', border: 'border-blue-400', text: 'text-white' },
     25: { bg: 'from-emerald-600 to-emerald-900', border: 'border-emerald-400', text: 'text-white' },
@@ -51,10 +55,18 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
     const current = dragStateRef.current;
     if (!current) return;
 
+    // Prevent duplicate firing within 300ms
+    const now = Date.now();
+    if (now - lastAddRef.current < 300) {
+      setDragState(null);
+      return;
+    }
+
     const dist = Math.hypot(clientX - current.startX, clientY - current.startY);
 
-    // If it was just a tap (< 8px movement), trigger instant add
+    // If it was just a tap (< 8px movement), trigger single add
     if (dist < 8 && !current.isDragging) {
+      lastAddRef.current = now;
       sound.playChip(current.value);
       triggerHaptic('light');
       onAddChip(current.value);
@@ -67,6 +79,7 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
     const dropZone = target?.closest('[data-drop-zone="bet"]');
 
     if (dropZone) {
+      lastAddRef.current = now;
       sound.playChipDrop();
       sound.playChip(current.value);
       triggerHaptic('medium');
@@ -79,7 +92,7 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
       if (dragStateRef.current) {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         const touch = e.touches[0];
         handleMove(touch.clientX, touch.clientY);
       }
@@ -119,8 +132,6 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
 
   const handleStart = (val: number, clientX: number, clientY: number) => {
     if (disabled) return;
-    sound.playChip(val);
-    triggerHaptic('light');
     setDragState({
       value: val,
       x: clientX,
@@ -142,10 +153,13 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
             <div
               key={val}
               onTouchStart={(e) => {
+                lastTouchTimeRef.current = Date.now();
                 const t = e.touches[0];
                 handleStart(val, t.clientX, t.clientY);
               }}
               onMouseDown={(e) => {
+                // Ignore synthetic mouse events right after touch
+                if (Date.now() - lastTouchTimeRef.current < 700) return;
                 handleStart(val, e.clientX, e.clientY);
               }}
               className="relative flex flex-col items-center cursor-grab active:cursor-grabbing transform transition-transform active:scale-95"

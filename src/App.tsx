@@ -17,6 +17,7 @@ import { LeaderboardModal } from './components/modals/LeaderboardModal';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { RewardedAdModal } from './components/modals/RewardedAdModal';
 import { MultiplayerModal } from './components/modals/MultiplayerModal';
+import { DailyRewardModal } from './components/modals/DailyRewardModal';
 import { multiplayer } from './utils/multiplayer';
 
 export function App() {
@@ -28,6 +29,7 @@ export function App() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdOpen, setIsAdOpen] = useState(false);
+  const [isDailyRewardOpen, setIsDailyRewardOpen] = useState(false);
   const [isMultiplayerOpen, setIsMultiplayerOpen] = useState(false);
   const [isMultiplayerConnected, setIsMultiplayerConnected] = useState(false);
 
@@ -82,6 +84,13 @@ export function App() {
     setProfile(prev => {
       const next = { ...prev, ...updated };
       saveUserProfile(next);
+      // Synchronize with peer player in real-time
+      multiplayer.syncLocalPlayer({
+        name: next.name,
+        photoUrl: next.photoUrl,
+        bankroll: next.bankroll,
+        weeklyScore: next.weeklyScore,
+      });
       return next;
     });
   };
@@ -94,7 +103,7 @@ export function App() {
   };
 
   return (
-    <main className="w-full h-screen h-[100dvh] overflow-hidden bg-neutral-950 font-sans text-neutral-100 flex flex-col">
+    <main className="w-full h-screen h-[100dvh] overflow-hidden overflow-x-hidden max-w-full bg-neutral-950 font-sans text-neutral-100 flex flex-col">
       {/* 1. Lobby View */}
       {currentGame === 'lobby' && (
         <LobbyView
@@ -106,6 +115,7 @@ export function App() {
           onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
           onOpenProfile={() => setIsProfileOpen(true)}
           onOpenAds={() => setIsAdOpen(true)}
+          onOpenDailyReward={() => setIsDailyRewardOpen(true)}
           onOpenMultiplayer={() => setIsMultiplayerOpen(true)}
           isMultiplayerConnected={isMultiplayerConnected}
         />
@@ -184,6 +194,13 @@ export function App() {
         onStartMultiplayerGame={(game: GameType) => {
           setCurrentGame(game);
         }}
+      />
+
+      <DailyRewardModal
+        isOpen={isDailyRewardOpen}
+        onClose={() => setIsDailyRewardOpen(false)}
+        profile={profile}
+        onUpdateProfile={handleUpdateProfile}
       />
     </main>
   );

@@ -111,6 +111,8 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
   const [seat2Payout, setSeat2Payout] = useState<number>(0);
 
   // Refs to access latest state inside async callbacks & listeners
+  const userProfileRef = useRef(userProfile);
+  userProfileRef.current = userProfile;
   const seat1CardsRef = useRef(seat1Cards);
   seat1CardsRef.current = seat1Cards;
   const seat2CardsRef = useRef(seat2Cards);
@@ -214,7 +216,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
       } else if (action === 'BJ_START_DEAL') {
         const { seat2Bet: s2B } = msg.payload;
         if (s2B > 0) {
-          onUpdateProfile({ bankroll: userProfile.bankroll - s2B });
+          onUpdateProfile({ bankroll: userProfileRef.current.bankroll - s2B });
           setPreviousBet(s2B);
         }
         setPhase('dealing');
@@ -402,28 +404,31 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
   // ========================================================
   const handleAddChip = (amount: number) => {
     if (phase !== 'betting') return;
-    if (userProfile.bankroll < currentBet + amount) {
-      triggerHaptic('warning');
-      return;
-    }
-    const nextBet = currentBet + amount;
-    setCurrentBet(nextBet);
-    triggerHaptic('light');
-
-    if (isP2P) {
-      if (isHost) {
-        setSeat1Bet(nextBet);
-      } else {
-        setSeat2Bet(nextBet);
+    const availableBankroll = userProfileRef.current.bankroll;
+    setCurrentBet((prevBet) => {
+      if (availableBankroll < prevBet + amount) {
+        triggerHaptic('warning');
+        return prevBet;
       }
-      multiplayer.send({
-        type: 'GAME_ACTION',
-        senderId: userProfile.id,
-        senderName: userProfile.name,
-        payload: { action: 'BJ_BET', seat: isHost ? 1 : 2, betAmount: nextBet },
-        timestamp: Date.now(),
-      });
-    }
+      const nextBet = prevBet + amount;
+      triggerHaptic('light');
+
+      if (isP2P) {
+        if (isHost) {
+          setSeat1Bet(nextBet);
+        } else {
+          setSeat2Bet(nextBet);
+        }
+        multiplayer.send({
+          type: 'GAME_ACTION',
+          senderId: userProfile.id,
+          senderName: userProfile.name,
+          payload: { action: 'BJ_BET', seat: isHost ? 1 : 2, betAmount: nextBet },
+          timestamp: Date.now(),
+        });
+      }
+      return nextBet;
+    });
   };
 
   const handleClearBet = () => {
@@ -1228,10 +1233,13 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
     s1St: string,
     s2St: string
   ) => {
+    const currentS1Bet = seat1BetRef.current;
+    const currentS2Bet = seat2BetRef.current;
+
     const s1Hand: BlackjackHand = {
       id: 's1',
       cards: s1Cards,
-      bet: seat1Bet,
+      bet: currentS1Bet,
       isDoubled: false,
       isStood: true,
       isBust: s1St === 'bust',
@@ -1242,11 +1250,11 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
     const s1Eval = evaluateOutcome(s1Hand, finalDealer);
 
     let s2Eval = null;
-    if (s2Cards.length > 0 && seat2Bet > 0) {
+    if (s2Cards.length > 0 && currentS2Bet > 0) {
       const s2Hand: BlackjackHand = {
         id: 's2',
         cards: s2Cards,
-        bet: seat2Bet,
+        bet: currentS2Bet,
         isDoubled: false,
         isStood: true,
         isBust: s2St === 'bust',
@@ -1284,22 +1292,23 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
   // Award P2P payout & stats
   const applyP2PResult = (result: any) => {
     if (!result) return;
-    const newBankroll = userProfile.bankroll + result.payout;
+    const currentProfile = userProfileRef.current;
+    const newBankroll = currentProfile.bankroll + result.payout;
     const profit = result.profit;
 
-    const bjStats = { ...userProfile.stats.blackjack };
+    const bjStats = { ...currentProfile.stats.blackjack };
     bjStats.gamesPlayed += 1;
     if (profit > 0) bjStats.gamesWon += 1;
     bjStats.totalProfit += profit;
     if (profit > bjStats.bestWin) bjStats.bestWin = profit;
 
-    const newWeeklyScore = Math.max(0, userProfile.weeklyScore + (profit > 0 ? profit * 2 : 0));
+    const newWeeklyScore = Math.max(0, currentProfile.weeklyScore + (profit > 0 ? profit * 2 : 0));
 
     onUpdateProfile({
       bankroll: newBankroll,
       weeklyScore: newWeeklyScore,
       stats: {
-        ...userProfile.stats,
+        ...currentProfile.stats,
         blackjack: bjStats,
       },
     });
@@ -1502,7 +1511,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col justify-between overflow-hidden table-felt-${userProfile.tableTheme} safe-top safe-bottom text-white select-none`}
+      className={`relative w-full max-w-full h-full flex flex-col justify-between overflow-hidden overflow-x-hidden table-felt-${userProfile.tableTheme} safe-top safe-bottom text-white select-none`}
     >
       {/* Top Bar Header */}
       <header className="px-3 py-2 flex items-center justify-between border-b border-white/10 bg-black/40 backdrop-blur-md z-30">
@@ -1589,7 +1598,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
       </header>
 
       {/* Main Playing Felt Arena */}
-      <div className="flex-1 flex flex-col justify-around px-2 sm:px-4 py-1 relative overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-around px-2 sm:px-4 py-1 relative overflow-y-auto overflow-x-hidden w-full max-w-full">
         {/* Dealer Section Directly on the Table Felt */}
         <div className="flex flex-col items-center my-1 relative z-10">
           {/* Croupier on Table Banner */}
@@ -1750,7 +1759,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
             PLAYER SEATS SECTION (MULTIPLAYER 2 SEATS VS SINGLE-PLAYER)
             ======================================================== */}
         {isP2P ? (
-          <div className="w-full max-w-lg mx-auto grid grid-cols-2 gap-2 sm:gap-3 px-1">
+          <div className="w-full max-w-lg mx-auto grid grid-cols-2 gap-1.5 sm:gap-3 px-1 min-w-0 overflow-hidden">
             {/* ASIENTO 1 (HOST) */}
             <div
               onDragOver={(e) => {
@@ -1770,20 +1779,33 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                 }
               }}
               data-drop-zone={isHost && phase === 'betting' ? 'bet' : undefined}
-              className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
+              className={`flex flex-col items-center p-2 rounded-2xl transition-all border min-w-0 overflow-hidden ${
                 activeSeatTurn === 'seat1'
-                  ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400 shadow-lg shadow-amber-400/25 scale-[1.02]'
+                  ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400 shadow-lg shadow-amber-400/25 scale-[1.01]'
                   : 'bg-black/35 border-white/10'
               }`}
             >
-              {/* Header */}
-              <div className="flex items-center gap-1 mb-1.5 flex-wrap justify-center text-center">
-                <span className="text-[10px] uppercase font-black tracking-wider text-amber-300 bg-amber-500/25 px-2 py-0.5 rounded-full border border-amber-500/40">
-                  {isHost ? 'Asiento 1 • Tú (Host)' : `Asiento 1 • ${remotePlayer?.name || 'Anfitrión'}`}
+              {/* Header with Photo */}
+              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap justify-center text-center max-w-full">
+                <div className="w-5 h-5 rounded-full overflow-hidden bg-amber-500/30 flex items-center justify-center shrink-0 border border-amber-400/50">
+                  {(isHost ? userProfile.photoUrl : remotePlayer?.photoUrl) ? (
+                    <img
+                      src={isHost ? userProfile.photoUrl : remotePlayer?.photoUrl}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[9px] font-black text-amber-300">
+                      {(isHost ? userProfile.name : remotePlayer?.name || 'A').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] uppercase font-black tracking-wider text-amber-300 bg-amber-500/25 px-2 py-0.5 rounded-full border border-amber-500/40 truncate max-w-[85px]">
+                  {isHost ? 'Tú (Host)' : (remotePlayer?.name || 'Anfitrión')}
                 </span>
                 {seat1Cards.length > 0 && (
                   <span
-                    className={`text-[11px] font-black px-1.5 py-0.5 rounded-full font-mono shadow border ${
+                    className={`text-[11px] font-black px-1.5 py-0.5 rounded-full font-mono shadow border shrink-0 ${
                       s1Val.isBust
                         ? 'bg-red-900/80 text-red-300 border-red-500'
                         : s1Val.isBlackjack
@@ -1794,13 +1816,13 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                     {s1Val.isBust ? 'Busto' : s1Val.isBlackjack ? 'BJ 21' : s1Val.total}
                   </span>
                 )}
-                <span className="text-[11px] font-bold text-amber-400 font-mono">
+                <span className="text-[11px] font-bold text-amber-400 font-mono shrink-0">
                   ${seat1Bet}
                 </span>
               </div>
 
               {/* Cards */}
-              <div className="flex items-center justify-center -space-x-4 min-h-[96px]">
+              <div className="flex items-center justify-center -space-x-5 min-h-[96px] w-full overflow-hidden px-0.5">
                 {seat1Cards.map((card) => (
                   <StandardCardView
                     key={card.id}
@@ -1847,20 +1869,33 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                 }
               }}
               data-drop-zone={!isHost && phase === 'betting' ? 'bet' : undefined}
-              className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
+              className={`flex flex-col items-center p-2 rounded-2xl transition-all border min-w-0 overflow-hidden ${
                 activeSeatTurn === 'seat2'
-                  ? 'bg-emerald-500/20 border-emerald-400 ring-2 ring-emerald-400 shadow-lg shadow-emerald-400/25 scale-[1.02]'
+                  ? 'bg-emerald-500/20 border-emerald-400 ring-2 ring-emerald-400 shadow-lg shadow-emerald-400/25 scale-[1.01]'
                   : 'bg-black/35 border-white/10'
               }`}
             >
-              {/* Header */}
-              <div className="flex items-center gap-1 mb-1.5 flex-wrap justify-center text-center">
-                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300 bg-emerald-500/25 px-2 py-0.5 rounded-full border border-emerald-500/40">
-                  {!isHost ? 'Asiento 2 • Tú (Invitado)' : `Asiento 2 • ${remotePlayer?.name || 'Tu Hermano'}`}
+              {/* Header with Photo */}
+              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap justify-center text-center max-w-full">
+                <div className="w-5 h-5 rounded-full overflow-hidden bg-emerald-500/30 flex items-center justify-center shrink-0 border border-emerald-400/50">
+                  {(!isHost ? userProfile.photoUrl : remotePlayer?.photoUrl) ? (
+                    <img
+                      src={!isHost ? userProfile.photoUrl : remotePlayer?.photoUrl}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[9px] font-black text-emerald-300">
+                      {(!isHost ? userProfile.name : remotePlayer?.name || 'H').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300 bg-emerald-500/25 px-2 py-0.5 rounded-full border border-emerald-500/40 truncate max-w-[85px]">
+                  {!isHost ? 'Tú (Invitado)' : (remotePlayer?.name || 'Tu Hermano')}
                 </span>
                 {seat2Cards.length > 0 && (
                   <span
-                    className={`text-[11px] font-black px-1.5 py-0.5 rounded-full font-mono shadow border ${
+                    className={`text-[11px] font-black px-1.5 py-0.5 rounded-full font-mono shadow border shrink-0 ${
                       s2Val.isBust
                         ? 'bg-red-900/80 text-red-300 border-red-500'
                         : s2Val.isBlackjack
@@ -1871,13 +1906,13 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                     {s2Val.isBust ? 'Busto' : s2Val.isBlackjack ? 'BJ 21' : s2Val.total}
                   </span>
                 )}
-                <span className="text-[11px] font-bold text-emerald-400 font-mono">
+                <span className="text-[11px] font-bold text-emerald-400 font-mono shrink-0">
                   ${seat2Bet}
                 </span>
               </div>
 
               {/* Cards */}
-              <div className="flex items-center justify-center -space-x-4 min-h-[96px]">
+              <div className="flex items-center justify-center -space-x-5 min-h-[96px] w-full overflow-hidden px-0.5">
                 {seat2Cards.map((card) => (
                   <StandardCardView
                     key={card.id}

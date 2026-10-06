@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { GameType, UserProfile } from '../../types/casino';
-import { formatMoney } from '../../utils/storage';
+import { formatMoney, canClaimDailyReward } from '../../utils/storage';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 import {
@@ -17,6 +17,7 @@ import {
   Layers,
   CircleDot,
   Music,
+  Gift,
 } from 'lucide-react';
 import { SpadeIcon, OroIcon } from '../common/CardView';
 
@@ -28,6 +29,7 @@ interface LobbyViewProps {
   onOpenProfile: () => void;
   onOpenAds: () => void;
   onOpenMultiplayer: () => void;
+  onOpenDailyReward: () => void;
   isMultiplayerConnected?: boolean;
 }
 
@@ -39,9 +41,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onOpenProfile,
   onOpenAds,
   onOpenMultiplayer,
+  onOpenDailyReward,
   isMultiplayerConnected = false,
 }) => {
   const [isMusicActive, setIsMusicActive] = useState(() => sound.isMusicPlaying());
+  const canClaimDaily = canClaimDailyReward(profile);
 
   const games: {
     id: GameType;
@@ -124,8 +128,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           }}
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer"
         >
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-neutral-950 font-black text-xs shadow-inner">
-            {profile.name.charAt(0).toUpperCase()}
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-neutral-950 font-black text-xs shadow-inner overflow-hidden border border-amber-400/40 shrink-0">
+            {profile.photoUrl ? (
+              <img src={profile.photoUrl} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              profile.name.charAt(0).toUpperCase()
+            )}
           </div>
           <div className="text-left">
             <div className="text-[11px] font-bold text-white leading-tight max-w-[85px] truncate">
@@ -174,6 +182,26 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               <Plus className="w-3 h-3 stroke-[3]" />
             </button>
           </div>
+
+          {/* Daily Reward Button */}
+          <button
+            onClick={() => {
+              sound.playChip();
+              triggerHaptic('medium');
+              onOpenDailyReward();
+            }}
+            title="Recompensa Diaria"
+            className={`relative p-2 rounded-full border transition-all cursor-pointer ${
+              canClaimDaily
+                ? 'bg-gradient-to-r from-amber-500/30 to-yellow-500/30 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] animate-pulse'
+                : 'bg-white/5 border-white/10 text-neutral-400 hover:text-amber-300'
+            }`}
+          >
+            <Gift className="w-4 h-4" />
+            {canClaimDaily && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-neutral-950 animate-ping" />
+            )}
+          </button>
 
           {/* Quick Header Actions */}
           <button
@@ -269,6 +297,31 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             </div>
             <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-full">
               Ver Ranking &rarr;
+            </span>
+          </div>
+
+          {/* Daily Reward Strip */}
+          <div
+            onClick={() => {
+              sound.playChip();
+              triggerHaptic('medium');
+              onOpenDailyReward();
+            }}
+            className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs text-neutral-300 cursor-pointer hover:text-white"
+          >
+            <div className="flex items-center gap-1.5">
+              <Gift className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+              <span className="font-semibold text-white">Bono Diario:</span>
+              <span className="text-amber-400 font-bold">
+                {canClaimDaily ? '¡Reclama tu premio hoy! (Hasta $5,000)' : `Racha Día ${profile.dailyStreak || 1} Reclamada`}
+              </span>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              canClaimDaily
+                ? 'bg-amber-400 text-neutral-950 font-black animate-pulse'
+                : 'bg-white/10 text-neutral-400'
+            }`}>
+              {canClaimDaily ? 'Reclamar' : 'Ver Racha'} &rarr;
             </span>
           </div>
         </div>
