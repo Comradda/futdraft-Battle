@@ -8,6 +8,8 @@ interface ChipViewProps {
   onClick?: () => void;
   size?: 'sm' | 'md' | 'lg';
   count?: number;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
 export const ChipView: React.FC<ChipViewProps> = ({
@@ -16,6 +18,8 @@ export const ChipView: React.FC<ChipViewProps> = ({
   onClick,
   size = 'md',
   count,
+  draggable = true,
+  onDragStart,
 }) => {
   const getColors = () => {
     switch (value) {
@@ -73,23 +77,32 @@ export const ChipView: React.FC<ChipViewProps> = ({
   }[size];
 
   const handleClick = () => {
-    sound.playChip();
+    sound.playChip(value);
     triggerHaptic('light');
     if (onClick) onClick();
+  };
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', value.toString());
+    sound.playChip(value);
+    triggerHaptic('medium');
+    if (onDragStart) onDragStart(e);
   };
 
   return (
     <div className="relative inline-flex flex-col items-center">
       <button
         type="button"
+        draggable={draggable}
+        onDragStart={handleDragStart}
         onClick={handleClick}
         className={`relative ${sizeClasses} rounded-full bg-gradient-to-br ${colors.bg} 
           border-2 border-dashed ${colors.border} shadow-lg flex items-center justify-center 
-          transition-transform active:scale-95 cursor-pointer font-bold ${colors.text}
+          transition-transform active:scale-95 cursor-grab active:cursor-grabbing font-bold ${colors.text}
           ${isSelected ? 'ring-3 ring-amber-400 -translate-y-2 scale-110 shadow-amber-500/50' : 'hover:scale-105'}`}
       >
         {/* Outer dash pattern */}
-        <div className="absolute inset-1 rounded-full border border-white/20 flex items-center justify-center">
+        <div className="absolute inset-1 rounded-full border border-white/20 flex items-center justify-center pointer-events-none">
           {/* Inner ring */}
           <div className="w-[70%] h-[70%] rounded-full bg-black/40 border border-white/30 flex items-center justify-center">
             <span className="font-extrabold tracking-tight">${value}</span>
@@ -97,7 +110,7 @@ export const ChipView: React.FC<ChipViewProps> = ({
         </div>
       </button>
       {count && count > 1 && (
-        <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full shadow">
+        <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full shadow pointer-events-none">
           x{count}
         </span>
       )}

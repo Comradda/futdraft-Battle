@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { GameType, UserProfile } from '../../types/casino';
 import { formatMoney } from '../../utils/storage';
 import { sound } from '../../utils/audio';
@@ -16,6 +16,7 @@ import {
   Coins,
   Layers,
   CircleDot,
+  Music,
 } from 'lucide-react';
 import { SpadeIcon, OroIcon } from '../common/CardView';
 
@@ -40,6 +41,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onOpenMultiplayer,
   isMultiplayerConnected = false,
 }) => {
+  const [isMusicActive, setIsMusicActive] = useState(() => sound.isMusicPlaying());
+
   const games: {
     id: GameType;
     title: string;
@@ -182,6 +185,21 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             className="p-2 rounded-full bg-white/5 border border-white/10 text-amber-400 hover:bg-white/10 transition-all cursor-pointer"
           >
             <Trophy className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              const active = sound.toggleCasinoMusic();
+              setIsMusicActive(active);
+            }}
+            title={isMusicActive ? 'Pausar música casino lounge' : 'Música VIP Lounge (Vegas / Caliente)'}
+            className={`p-2 rounded-full border transition-all cursor-pointer ${
+              isMusicActive
+                ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse'
+                : 'bg-white/5 border-white/10 text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <Music className="w-4 h-4" />
           </button>
           <button
             onClick={() => {

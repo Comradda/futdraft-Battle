@@ -106,19 +106,19 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
     (speech: CrupierSpeech) => {
       setCrupierSpeech(speech);
       setIsCrupierSpeaking(true);
-      const pitch =
-        userProfile.crupierPersonality === 'burlona'
-          ? 520
-          : userProfile.crupierPersonality === 'desafiante'
-          ? 340
-          : userProfile.crupierPersonality === 'amigable'
-          ? 480
-          : 440;
-      sound.playDealerVoice(pitch);
+
+      // Attractive voice synthesis
+      sound.speakDealer(speech.text, userProfile.crupierPersonality);
+
+      if (speech.mood === 'laughing' || (userProfile.crupierPersonality === 'burlona' && speech.mood === 'smirk')) {
+        setTimeout(() => {
+          sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
+        }, 350);
+      }
 
       setTimeout(() => {
         setIsCrupierSpeaking(false);
-      }, 4200);
+      }, 4500);
     },
     [userProfile.crupierPersonality]
   );
@@ -566,6 +566,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
     // Audio & Haptic celebration
     if (settlement.isWin) {
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       if (settlement.isBigWin) {
         confetti({
@@ -576,6 +577,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
       }
     } else {
       sound.playLose();
+      sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
       triggerHaptic('heavy');
     }
 

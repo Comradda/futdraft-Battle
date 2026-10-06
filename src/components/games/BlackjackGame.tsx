@@ -754,6 +754,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
         if (val.isBust) {
           nextStatus = 'bust';
           sound.playLose();
+          sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
           triggerHaptic('warning');
           nextTurn = seat2Cards.length > 0 && seat2Status === 'playing' ? 'seat2' : 'dealer';
         } else if (val.total === 21) {
@@ -821,6 +822,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
       if (val.isBust) {
         sound.playLose();
+        sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
         triggerHaptic('warning');
         triggerCrupierEvent('bj_bust', { playerScore: val.total });
         advanceToNextHandOrDealer(newHands, activeHandIndex);
@@ -1243,26 +1245,33 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
     if (result.outcome === 'blackjack') {
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       setBannerMessage('¡¡BLACKJACK!! Pago 3 a 2');
       setBannerType('blackjack');
+      triggerCrupierEvent('bj_player_blackjack', { playerScore: 21 });
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ['#f59e0b', '#10b981', '#ffffff'] });
     } else if (result.outcome === 'won') {
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       setBannerMessage(`¡Mano Ganadora! +${formatMoney(profit)}`);
       setBannerType('win');
+      triggerCrupierEvent('player_win');
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     } else if (result.outcome === 'push') {
       sound.playCardFlip();
       triggerHaptic('light');
       setBannerMessage('Empate - Apuesta recuperada');
       setBannerType('push');
+      triggerCrupierEvent('bj_push');
     } else {
       sound.playLose();
+      sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
       triggerHaptic('warning');
       setBannerMessage('La Casa gana');
       setBannerType('lose');
+      triggerCrupierEvent('player_loss');
     }
   };
 
@@ -1320,6 +1329,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
     if (anyBlackjack) {
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       setBannerMessage('¡¡BLACKJACK!! Pago 3 a 2');
       setBannerType('blackjack');
@@ -1332,12 +1342,14 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
       });
     } else if (dVal.isBlackjack) {
       sound.playLose();
+      sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
       triggerHaptic('warning');
       setBannerMessage('Blackjack de la Casa');
       setBannerType('lose');
       triggerCrupierEvent('bj_dealer_blackjack', { dealerScore: 21 });
     } else if (anyWin) {
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       if (anyDealerBust) {
         setBannerMessage('¡El Crupier se pasó de 21! Ganaste');
@@ -1359,6 +1371,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
       triggerCrupierEvent('bj_push', { playerScore: pVal.total, dealerScore: dVal.total });
     } else {
       sound.playLose();
+      sound.playDealerLaugh(userProfile.crupierPersonality !== 'desafiante');
       triggerHaptic('warning');
       setBannerMessage('La Casa Gana esta ronda');
       setBannerType('lose');
@@ -1559,6 +1572,22 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
           <div className="w-full max-w-lg mx-auto grid grid-cols-2 gap-2 sm:gap-3 px-1">
             {/* ASIENTO 1 (HOST) */}
             <div
+              onDragOver={(e) => {
+                if (isHost && phase === 'betting') {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                }
+              }}
+              onDrop={(e) => {
+                if (isHost && phase === 'betting') {
+                  e.preventDefault();
+                  const val = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                  if (!isNaN(val) && val > 0) {
+                    sound.playChipDrop();
+                    handleAddChip(val);
+                  }
+                }
+              }}
               className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
                 activeSeatTurn === 'seat1'
                   ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400 shadow-lg shadow-amber-400/25 scale-[1.02]'
@@ -1619,6 +1648,22 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
             {/* ASIENTO 2 (GUEST) */}
             <div
+              onDragOver={(e) => {
+                if (!isHost && phase === 'betting') {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                }
+              }}
+              onDrop={(e) => {
+                if (!isHost && phase === 'betting') {
+                  e.preventDefault();
+                  const val = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                  if (!isNaN(val) && val > 0) {
+                    sound.playChipDrop();
+                    handleAddChip(val);
+                  }
+                }
+              }}
               className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
                 activeSeatTurn === 'seat2'
                   ? 'bg-emerald-500/20 border-emerald-400 ring-2 ring-emerald-400 shadow-lg shadow-emerald-400/25 scale-[1.02]'
@@ -1741,11 +1786,36 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
               })}
 
               {playerHands.length === 0 && (
-                <div className="flex flex-col items-center">
-                  <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-neutral-400 text-[10px] text-center p-1">
-                    Tu Lugar
+                <div
+                  onDragOver={(e) => {
+                    if (phase === 'betting') {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                    }
+                  }}
+                  onDrop={(e) => {
+                    if (phase === 'betting') {
+                      e.preventDefault();
+                      const val = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                      if (!isNaN(val) && val > 0) {
+                        sound.playChipDrop();
+                        handleAddChip(val);
+                      }
+                    }
+                  }}
+                  onClick={() => handleAddChip(25)}
+                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 border-dashed border-amber-400/50 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center p-3 text-center my-2 shadow-[0_0_25px_rgba(245,158,11,0.25)] hover:border-amber-300 hover:scale-105 transition-all group cursor-pointer"
+                  title="Arrastra fichas aquí para apostar o toca"
+                >
+                  <div className="w-12 h-12 rounded-full border-2 border-amber-400/60 flex items-center justify-center text-amber-300 font-black text-sm mb-1 bg-amber-500/15 group-hover:scale-110 transition-transform shadow-inner">
+                    {currentBet > 0 ? `$${currentBet}` : '$'}
                   </div>
-                  <span className="text-[11px] text-neutral-400 mt-2">Coloca tus fichas abajo</span>
+                  <span className="text-[11px] font-bold text-amber-300">
+                    {currentBet > 0 ? `Apuesta: $${currentBet}` : 'Arrastra tus Fichas'}
+                  </span>
+                  <span className="text-[9px] text-neutral-400 mt-0.5">
+                    o toca las fichas abajo
+                  </span>
                 </div>
               )}
             </div>

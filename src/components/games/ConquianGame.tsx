@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { SpanishCard, UserProfile, TableTheme } from '../../types/casino';
 import { CardBack, SpanishCardView, OroIcon } from '../common/CardView';
+import { CrupierAvatar } from '../crupier/CrupierAvatar';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 import { formatMoney } from '../../utils/storage';
@@ -197,11 +198,16 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     };
   }, []);
 
-  // Update speech with sound blip
+  // Update speech with attractive voice and laughter
   const speakCrupier = (text: string, mood: 'neutral' | 'talking' | 'taunting' | 'shocked' = 'talking') => {
     setCrupierSpeech(text);
     setCrupierMood(mood);
-    sound.playDealerVoice();
+    sound.speakDealer(text, profile.crupierPersonality);
+    if (mood === 'taunting') {
+      setTimeout(() => {
+        sound.playDealerLaugh(profile.crupierPersonality !== 'desafiante');
+      }, 350);
+    }
   };
 
   // Helper for Table theme styling
@@ -311,6 +317,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
       });
 
       sound.playWin();
+      sound.playCashRegister();
       triggerHaptic('success');
       confetti({
         particleCount: 120,
@@ -352,6 +359,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
       });
 
       sound.playLose();
+      sound.playDealerLaugh(profile.crupierPersonality !== 'desafiante');
       triggerHaptic('heavy');
 
       const speech = getCrupierDialogue('crupier_won', profile.crupierPersonality);
@@ -997,20 +1005,35 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
         <div className="flex items-center justify-between">
           {/* Dealer Info & Speech Bubble */}
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="relative">
-              <div
-                className={`w-10 h-10 rounded-full bg-gradient-to-tr from-amber-700 to-amber-500 border-2 shadow-md flex items-center justify-center font-black text-xs ${
-                  crupierMood === 'shocked'
-                    ? 'border-rose-400 text-rose-300 ring-2 ring-rose-400/40'
-                    : crupierMood === 'taunting'
-                    ? 'border-purple-400 text-purple-300 ring-2 ring-purple-400/40'
-                    : crupierMood === 'talking'
-                    ? 'border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40'
-                    : 'border-amber-300 text-amber-200'
-                }`}
-              >
-                {isP2P ? (remotePlayer?.name?.substring(0, 2).toUpperCase() || 'P2') : 'VIP'}
-              </div>
+            <div className="relative shrink-0">
+              {!isP2P ? (
+                <CrupierAvatar
+                  size={46}
+                  personality={profile.crupierPersonality}
+                  mood={
+                    crupierMood === 'taunting'
+                      ? 'smirk'
+                      : crupierMood === 'shocked'
+                      ? 'impressed'
+                      : 'neutral'
+                  }
+                  isSpeaking={crupierMood !== 'neutral'}
+                />
+              ) : (
+                <div
+                  className={`w-11 h-11 rounded-full bg-gradient-to-tr from-amber-700 to-amber-500 border-2 shadow-md flex items-center justify-center font-black text-xs ${
+                    crupierMood === 'shocked'
+                      ? 'border-rose-400 text-rose-300 ring-2 ring-rose-400/40'
+                      : crupierMood === 'taunting'
+                      ? 'border-purple-400 text-purple-300 ring-2 ring-purple-400/40'
+                      : crupierMood === 'talking'
+                      ? 'border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40'
+                      : 'border-amber-300 text-amber-200'
+                  }`}
+                >
+                  {remotePlayer?.name?.substring(0, 2).toUpperCase() || 'P2'}
+                </div>
+              )}
               {isAiThinking && (
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 animate-ping" />
               )}
