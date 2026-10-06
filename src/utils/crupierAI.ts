@@ -27,6 +27,7 @@ export interface CrupierDialogueResult {
 export interface PersonalityConfig {
   id: PersonalityType;
   name: string;
+  region: string;
   title: string;
   description: string;
   badge: string;
@@ -35,56 +36,65 @@ export interface PersonalityConfig {
   basePitch: number;
   image: string;
   gender: 'female' | 'male';
+  sampleLine: string;
 }
 
 export const PERSONALITY_CONFIGS: Record<PersonalityType, PersonalityConfig> = {
+  burlona: {
+    id: 'burlona',
+    name: 'Valeria',
+    region: 'Monterrey, N.L. (Regia)',
+    title: 'Regia Provocadora & Burlona',
+    description: 'Seductora, picuda y burlona de Nuevo León. Habla golpeadito regio; se burla si juegas pichicato y festeja cuando cobras con madre.',
+    badge: '💋 Regia de Monterrey',
+    avatarMood: 'smirk',
+    glowColor: 'rgba(225, 29, 72, 0.55)',
+    basePitch: 520,
+    image: '/images/dealers/crupier_burlona.jpg',
+    gender: 'female',
+    sampleLine: '¡Hombre, qué bárbaro! Tírale con ganas, compadre, aquí en el norte jugamos con billete de a de veras.',
+  },
   neutral: {
     id: 'neutral',
     name: 'Sarah',
-    title: 'Crupier VIP • Terciopelo Negro',
-    description: 'Seductora, elegante y profesional. Te acompaña con clase y una sonrisa cautivadora.',
-    badge: '👑 VIP Royale',
+    region: 'CDMX (Chilanga Fresa)',
+    title: 'Chilanga VIP • Polanco Casino',
+    description: 'Elegante, cosmopolita y coqueta de la capital. Tono cantadito chilango fino, te habla con clase y mucha coquetería.',
+    badge: '👑 Chilanga VIP (CDMX)',
     avatarMood: 'neutral',
     glowColor: 'rgba(234, 179, 8, 0.45)',
     basePitch: 480,
     image: '/images/dealers/crupier_neutral.jpg',
     gender: 'female',
-  },
-  burlona: {
-    id: 'burlona',
-    name: 'Valeria',
-    title: 'Provocadora & Sarcástica',
-    description: 'Sensual, atrevida y burlona. Se ríe con picardía cuando pierdes y te desafía a recuperarte.',
-    badge: '💋 Burlona',
-    avatarMood: 'smirk',
-    glowColor: 'rgba(225, 29, 72, 0.5)',
-    basePitch: 520,
-    image: '/images/dealers/crupier_burlona.jpg',
-    gender: 'female',
-  },
-  desafiante: {
-    id: 'desafiante',
-    name: 'Marcus',
-    title: 'High-Roller Boss',
-    description: 'Poderoso, elegante y desafiante. Te mira con intensidad y te reta a subir la apuesta.',
-    badge: '🍸 Smoking Boss',
-    avatarMood: 'challenging',
-    glowColor: 'rgba(59, 130, 246, 0.45)',
-    basePitch: 320,
-    image: '/images/dealers/crupier_desafiante.jpg',
-    gender: 'male',
+    sampleLine: '¡Cámara, mi gente! Hagan sus apuestas que la suerte en la capital no espera a nadie.',
   },
   amigable: {
     id: 'amigable',
     name: 'Elena',
-    title: 'Anfitriona Diamante',
-    description: 'Hermosa, radiante y encantadora. Celebra cada una de tus victorias con una voz deslumbrante.',
-    badge: '✨ Encantadora',
+    region: 'El Bajío / Jalisco (Tapatía)',
+    title: 'Tapatía Diamante • El Bajío',
+    description: 'Hermosa, cariñosa, dulce y cantadita de Jalisco. Te llama corazón, te consiente, celebra tus victorias y te echa porras.',
+    badge: '✨ Tapatía del Bajío',
     avatarMood: 'celebrating',
     glowColor: 'rgba(16, 185, 129, 0.45)',
-    basePitch: 500,
+    basePitch: 540,
     image: '/images/dealers/crupier_amigable.jpg',
     gender: 'female',
+    sampleLine: '¡Ay bienvenido corazón! Ándale pues, qué mano tan bonita nos vamos a aventar hoy.',
+  },
+  desafiante: {
+    id: 'desafiante',
+    name: 'Marcus',
+    region: 'Norteño Bravo (Sinaloa)',
+    title: 'El Patrón High-Roller',
+    description: 'Imponente, de voz gruesa y autoritaria de jefe norteño. No tolera timidez y te reta a subirle los números al tablero.',
+    badge: '🍸 El Patrón Norteño',
+    avatarMood: 'challenging',
+    glowColor: 'rgba(59, 130, 246, 0.45)',
+    basePitch: 310,
+    image: '/images/dealers/crupier_desafiante.jpg',
+    gender: 'male',
+    sampleLine: 'Aquí pura lumbre y gente de palabra. Súbale a la apuesta si quiere hablar con el mero patrón.',
   },
 };
 
@@ -96,628 +106,381 @@ type DialogueEntry = {
 
 type DialogueMap = Record<string, DialogueEntry[]>;
 
-// Dialogues database organized by personality and event
+// Dialogues database organized by personality and regional Mexican dialect
 const DIALOGUE_DB: Record<PersonalityType, DialogueMap> = {
-  // 1. NEUTRAL: Formal, elegant casino dealer
-  neutral: {
-    game_start: [
-      { text: 'Buenas noches. Bienvenidos a Casino Royale. Hagan sus apuestas.', mood: 'neutral' },
-      { text: 'Mesa abierta. Que la fortuna y la destreza los acompañen hoy.', mood: 'neutral' },
-      { text: 'Sean bienvenidos. Las apuestas están formalmente abiertas.', mood: 'neutral' },
-    ],
-    bet_placed: [
-      { text: 'Apuesta colocada sobre el tapete. Suerte en la jugada.', mood: 'neutral' },
-      { text: 'Fichas registradas. La casa acepta su jugada.', mood: 'neutral' },
-      { text: 'Apuesta en firme. Mucha suerte, caballero.', mood: 'neutral' },
-    ],
-    low_bet: [
-      { text: 'Apuesta mínima aceptada. Procedemos con la mano.', mood: 'neutral' },
-      { text: 'Fichas en juego. Una estrategia prudente.', mood: 'thinking' },
-    ],
-    high_bet: [
-      { text: 'Apuesta mayor registrada. La casa reconoce su determinación.', mood: 'impressed' },
-      { text: 'Monto considerable en la mesa. Buena suerte a todos.', mood: 'impressed' },
-    ],
-    player_win: [
-      { text: 'Felicidades al jugador por esta destacada victoria.', mood: 'celebrating' },
-      { text: 'Pago correspondiente entregado. Enhorabuena.', mood: 'neutral' },
-      { text: 'Excelente lectura de juego. Pozo para el jugador.', mood: 'impressed' },
-    ],
-    player_loss: [
-      { text: 'La casa toma la mano en esta ocasión. Siguiente ronda disponible.', mood: 'neutral' },
-      { text: 'Resultado adverso. La fortuna cambia con cada mano.', mood: 'thinking' },
-    ],
-    out_of_chips: [
-      { text: 'Su reserva de fichas se ha agotado. Puede solicitar una recarga para continuar en la mesa.', mood: 'neutral' },
-      { text: 'Banca en cero. Mire un breve anuncio de patrocinio para recibir una dotación de cortesía.', mood: 'thinking' },
-      { text: 'Fichas terminadas. Tiene la opción de ver un mensaje patrocinado para reiniciar su juego.', mood: 'neutral' },
-    ],
-    idle: [
-      { text: 'Esperando la decisión del jugador para continuar.', mood: 'thinking' },
-      { text: 'Tómese su tiempo para analizar la jugada.', mood: 'neutral' },
-    ],
-
-    // Blackjack Neutral
-    bj_deal: [
-      { text: 'Reparto inicial. Cartas servidas en la mesa.', mood: 'neutral' },
-      { text: 'Cartas a la vista. ¿Desea pedir carta o plantarse?', mood: 'thinking' },
-    ],
-    bj_hit_risky: [
-      { text: 'Pide carta con total comprometido. Veamos qué carta le concede el mazo.', mood: 'thinking' },
-      { text: 'Decisión valiente al pedir carta en zona de riesgo.', mood: 'impressed' },
-    ],
-    bj_stand: [
-      { text: 'Jugador se planta. Es el turno de la banca.', mood: 'neutral' },
-      { text: 'Plantado. Verifiquemos la carta oculta del crupier.', mood: 'thinking' },
-    ],
-    bj_double: [
-      { text: 'Jugador dobla la apuesta. Una sola carta definitiva.', mood: 'thinking' },
-    ],
-    bj_split: [
-      { text: 'Mano dividida. Jugamos dos manos independientes.', mood: 'neutral' },
-    ],
-    bj_bust: [
-      { text: 'Ha superado los 21 puntos. Mano no válida. Casa gana.', mood: 'neutral' },
-      { text: 'Más de 21. Se retira la apuesta del tapete.', mood: 'thinking' },
-    ],
-    bj_dealer_bust: [
-      { text: 'El crupier se ha pasado de 21. Pago general para todos los jugadores.', mood: 'celebrating' },
-      { text: 'La banca supera 21. Se acreditan las ganancias a su favor.', mood: 'impressed' },
-    ],
-    bj_dealer_blackjack: [
-      { text: 'Blackjack natural para la casa. Lo lamento, caballero.', mood: 'neutral' },
-      { text: 'As y figura para el crupier. Mano terminada.', mood: 'neutral' },
-    ],
-    bj_player_blackjack: [
-      { text: '¡Blackjack natural! Pago 3 a 2 para el jugador.', mood: 'celebrating' },
-      { text: '21 directo al reparto. Extraordinaria mano.', mood: 'impressed' },
-    ],
-    bj_push: [
-      { text: 'Empate de totales. La apuesta se mantiene intacta.', mood: 'neutral' },
-    ],
-
-    // Poker Neutral
-    poker_preflop_raise: [
-      { text: 'Subida de apuesta antes del flop. Acción incrementada.', mood: 'neutral' },
-      { text: 'El jugador eleva el pozo pre-flop. Esperando respuestas.', mood: 'thinking' },
-    ],
-    poker_flop: [
-      { text: 'Se descubren las tres cartas del flop.', mood: 'neutral' },
-    ],
-    poker_turn: [
-      { text: 'Carta del turn servida sobre la mesa.', mood: 'thinking' },
-    ],
-    poker_river_bluff: [
-      { text: 'Fuerte presión en la quinta carta del river.', mood: 'thinking' },
-      { text: 'Apuesta decisiva en el river. Momento cumbre de la mano.', mood: 'impressed' },
-    ],
-    poker_win: [
-      { text: 'Mano ganadora verificada. El pozo le corresponde íntegramente.', mood: 'celebrating' },
-      { text: 'Gran demostración de estrategia pokeril. Enhorabuena.', mood: 'impressed' },
-    ],
-    poker_bad_beat: [
-      { text: 'Golpe inesperado en la última calle. El azar ha favorecido a la casa.', mood: 'thinking' },
-      { text: 'Una mano desafortunada contra pronóstico.', mood: 'neutral' },
-    ],
-    poker_fold: [
-      { text: 'El jugador se retira. Cartas al descarte.', mood: 'neutral' },
-    ],
-
-    // Roulette Neutral
-    roulette_spin_start: [
-      { text: '¡No va más! La bola está en giro sobre el cilindro.', mood: 'neutral' },
-      { text: 'Rien ne va plus. Buena suerte a todas las apuestas.', mood: 'neutral' },
-    ],
-    roulette_ball_bouncing: [
-      { text: 'La bola pierde inercia y salta entre las celdas.', mood: 'thinking' },
-      { text: 'Buscando casilla definitiva en el plato.', mood: 'thinking' },
-    ],
-    roulette_win_number: [
-      { text: '¡Pleno acertado! Pago de 35 veces la apuesta.', mood: 'celebrating' },
-      { text: 'Acierto directo al número. Magnífica intuición.', mood: 'impressed' },
-    ],
-    roulette_win_outside: [
-      { text: 'Apuesta exterior ganadora. Cobro 1 a 1 entregado.', mood: 'neutral' },
-    ],
-    roulette_loss_color: [
-      { text: 'La bola cayó en el color contrario. Casa retiene la apuesta.', mood: 'neutral' },
-    ],
-    roulette_zero: [
-      { text: 'Número cero verde. Las suertes sencillas corresponden al casino.', mood: 'neutral' },
-    ],
-
-    // Conquian Neutral
-    conquian_draw: [
-      { text: 'Carta tomada del monte para análisis.', mood: 'thinking' },
-    ],
-    conquian_forced_meld: [
-      { text: 'Carta castigada: entra obligatoriamente a una de sus combinaciones.', mood: 'thinking' },
-      { text: 'Jugada obligada por la carta del descarte.', mood: 'neutral' },
-    ],
-    conquian_win_9_cards: [
-      { text: '¡Conquián oficial! Nueve cartas combinadas satisfactoriamente.', mood: 'celebrating' },
-      { text: 'Cierre magistral con 9 cartas en la mesa. Victoria confirmada.', mood: 'impressed' },
-    ],
-    conquian_discard: [
-      { text: 'Carta depositada en el pozo de descarte.', mood: 'neutral' },
-    ],
-    conquian_meld: [
-      { text: 'Combinación reglamentaria bajada al tapete.', mood: 'neutral' },
-    ],
-  },
-
-  // 2. BURLONA: Sarcastic, mocking bad moves, witty, humorous
+  // 1. VALERIA - MONTERREY / REGIA (Sarcástica, seductora, picuda, habla golpeadito)
   burlona: {
     game_start: [
-      { text: '¿Trajiste la cartera llena o vienes a donar como la última vez?', mood: 'smirk' },
-      { text: '¡Miren quién llegó! A ver si hoy sí sabes contar hasta 21 o te presto una calculadora.', mood: 'laughing' },
-      { text: 'Ponte cómodo... tus fichas ya me están diciendo que se quieren venir conmigo.', mood: 'smirk' },
+      { text: '¡Hombre, qué bárbaro! ¿Trajiste la cartera llena o vienes a donar como la última vez, compadre?', mood: 'smirk' },
+      { text: '¡Miren quién llegó! A ver si hoy sí le sabes contar a 21 o te presto una calculadora, jálate.', mood: 'laughing' },
+      { text: 'Ponte cómodo mi rey... que tus fichas ya me andan guiñando el ojo pa\' venirse conmigo.', mood: 'smirk' },
     ],
     bet_placed: [
-      { text: '¿Eso fue tu apuesta? Cuidado no vayas a quebrar al casino con esos dos pesos.', mood: 'smirk' },
-      { text: 'Vaya, veo que hoy rompiste la alcancía del puerquito.', mood: 'laughing' },
-      { text: 'Esa apuesta parece una propina para el valet parking.', mood: 'smirk' },
+      { text: '¿Eso apostaste? No seas pichicato, compadre, ¡ni pa\' unos tacos de trompo te alcanza eso!', mood: 'smirk' },
+      { text: 'Vaya, veo que rompiste la alcancía del rancho... A ver si no te arrepientes al ratito.', mood: 'laughing' },
+      { text: 'Esa apuesta parece propina del valet parking, tírale con lumbre hombre.', mood: 'smirk' },
     ],
     low_bet: [
-      { text: '¿Seguro que no quieres apostar un botón de camisa también?', mood: 'laughing' },
-      { text: '¿Esa limosnita? Pensé que venías a jugar, no a pedir fiado.', mood: 'smirk' },
-      { text: 'No tiembles tanto al empujar la fichita, no muerde.', mood: 'smirk' },
+      { text: '¿Seguro que no quieres apostar un botón de tu camisa? ¡No seas codo!', mood: 'laughing' },
+      { text: '¿Esa limosnita? Pensé que venías a jugar con billete de a de veras.', mood: 'smirk' },
+      { text: 'No le tiembles tanto al tapete compadre, las fichas no muerden.', mood: 'smirk' },
     ],
     high_bet: [
-      { text: '¡Ay mi madre! O eres un genio millonario o te gusta vivir al borde del precipicio.', mood: 'impressed' },
-      { text: '¡Caray! Alguien vino con ganas de quedar en la calle o salir en limusina.', mood: 'smirk' },
-      { text: 'Fiu fiu... con eso comemos caviar hoy. A ver si no te arrepientes.', mood: 'laughing' },
+      { text: '¡Ay papá! ¡Eso sí es apostar con madre! A ver si no te me rajas ahorita.', mood: 'impressed' },
+      { text: '¡Fiu fiu! Billete pesado en la mesa, me gusta tu estilo bravucón.', mood: 'smirk' },
+      { text: 'Con esa apuesta cenamos corte fino hoy en Monterrey... ¡a ver de cuál cuero salen más correas!', mood: 'laughing' },
     ],
     player_win: [
-      { text: 'Hasta un reloj descompuesto da la hora correcta dos veces al día.', mood: 'smirk' },
-      { text: 'No te emociones tanto, fue pura suerte de principiante.', mood: 'laughing' },
-      { text: '¿Hiciste trampa o qué santo bajó a ayudarte? Bueno, cóbralo antes de que cambie de opinión.', mood: 'smirk' },
+      { text: '¡Mira nada más! Cobraste con madre, te tocó la buena suerte compadre.', mood: 'smirk' },
+      { text: 'No te emociones tanto, fue pura chiripa de principiante.', mood: 'laughing' },
+      { text: 'Hasta un reloj descompuesto da la hora buena dos veces al día... pero cóbralo antes de que me arrepienta.', mood: 'smirk' },
     ],
     player_loss: [
-      { text: 'Otra generosa contribución para mi fondo de vacaciones. ¡Muchas gracias!', mood: 'laughing' },
-      { text: '¿Eso era tu plan maestro? Porque funcionó... ¡pero a favor de la casa!', mood: 'smirk' },
-      { text: 'Tranquilo, perder con estilo también es un arte. Tú no lo tienes, pero se intenta.', mood: 'laughing' },
+      { text: '¡Jajajaja, te pelaste compadre! Otra generosa propinita pa\' mi fin de semana en Chipinque, ¡muchas gracias!', mood: 'laughing' },
+      { text: '¿Eso era tu plan maestro? ¡Te salió el tiro por la culata, las fichas se quedan aquí!', mood: 'smirk' },
+      { text: 'Tranquilo mi rey, perder con estilo también es arte. Tú no lo tienes, pero se intenta, jajaja.', mood: 'laughing' },
     ],
     out_of_chips: [
-      { text: '¿Te quedaste sin fichas? Mira un anuncio si quieres revancha, pobretón.', mood: 'laughing' },
-      { text: '¿Bolsillos vacíos tan rápido? Ve un video publicitario a ver si te regalan algo de dignidad.', mood: 'smirk' },
-      { text: '¡Te quedaste en la ruina! Ve a trabajar mirando un anuncio para que vuelvas al ruedo.', mood: 'laughing' },
+      { text: '¿Ya te quedaste chiflando en la loma? Ve un anuncio pa\' que te den fichas de limosna, pobretón.', mood: 'laughing' },
+      { text: '¡Bolsillos vacíos tan rápido! Aviéntate un video a ver si te regalan algo de orgullo.', mood: 'smirk' },
+      { text: '¡En la pura ruina te dejé! Ve a trabajar viendo un comercial pa\' que vuelvas al ruedo.', mood: 'laughing' },
     ],
     idle: [
-      { text: '¿Te dormiste o estás llamando a tu mamá para que te diga qué hacer?', mood: 'smirk' },
-      { text: 'El reloj corre, mi amigo. Hasta las tortugas juegan más rápido.', mood: 'thinking' },
+      { text: '¿Te dormiste o le estás hablando a tu mamá pa\' que te diga qué jugar?', mood: 'smirk' },
+      { text: 'El reloj vuela, compadre. Hasta las tortugas de la Huasteca juegan más rápido.', mood: 'thinking' },
     ],
 
-    // Blackjack Burlona
+    // Blackjack Regia
     bj_deal: [
-      { text: 'A ver qué porquería de cartas te tocó hoy...', mood: 'smirk' },
-      { text: 'Cartas servidas. Veamos si el azar tiene piedad de ti.', mood: 'neutral' },
+      { text: 'A ver qué jueguito te tocó hoy, compadre...', mood: 'smirk' },
+      { text: 'Cartas servidas. A ver si el azar se apiada de ti o me quedo con tu lana.', mood: 'neutral' },
     ],
     bj_hit_risky: [
-      { text: '¿Pediste carta con 16 frente a un 6? ¿Seguro que no quieres ayuda de un niño?', mood: 'laughing' },
-      { text: '¿Carta con 16? Qué ganas de regalarle el sueldo a la casa.', mood: 'smirk' },
-      { text: '¡Qué puntería para suicidarte en la mesa! A ver si sale el milagroso 5.', mood: 'laughing' },
+      { text: '¿Pediste carta con 16 frente a un 6? ¡Qué ganas de tirar el sueldo a la basura, jajaja!', mood: 'laughing' },
+      { text: '¡Qué puntería para suicidarte en la mesa! A ver si te sale el milagroso 5.', mood: 'smirk' },
     ],
     bj_stand: [
-      { text: '¿Te plantas ahí? Espero que tus cartas sepan nadar con ese total tan flojo.', mood: 'smirk' },
-      { text: '¿Eso es todo? Te dio frío en los pies, ¿verdad?', mood: 'laughing' },
+      { text: '¿Te plantas ahí? Espero que tus cartas sepan nadar con ese total tan flojito.', mood: 'smirk' },
+      { text: '¿Eso es todo? Te dio frío en los pies, ¿verdad compadre?', mood: 'laughing' },
     ],
     bj_double: [
-      { text: '¡Doblando! Espero que tengas con qué pagar si te sale un 2.', mood: 'laughing' },
+      { text: '¡Doblando! Espero que tengas con qué pagar si te sale un dos mugroso.', mood: 'laughing' },
       { text: '¿Doble o nada? Qué optimismo tan tierno el tuyo.', mood: 'smirk' },
     ],
     bj_split: [
-      { text: 'Dos manos para perder el doble de rápido. ¡Me encanta tu generosidad!', mood: 'laughing' },
+      { text: 'Dos manos para perder el doble de rápido, ¡me encanta tu generosidad!', mood: 'laughing' },
     ],
     bj_bust: [
-      { text: '¡Boom! Te pasaste de largo. ¿Querías llegar a 30 o qué?', mood: 'laughing' },
-      { text: '¿Volaste tan alto que te quemaste con el sol? ¡Tus cartas van directo a la basura!', mood: 'smirk' },
-      { text: 'Se pasó. Gracias por el depósito bancario sin comisiones.', mood: 'laughing' },
+      { text: '¡Boom! Te pasaste de lanza. ¿Querías llegar a 30 o qué te pasó en la cabeza? Jajaja.', mood: 'laughing' },
+      { text: '¡Te quemaste completito! Esas cartas van derechito al basurero.', mood: 'smirk' },
     ],
     bj_dealer_bust: [
-      { text: 'Pff, tuve piedad de ti para que no llores. No te acostumbres.', mood: 'smirk' },
-      { text: 'Bueno, un error de cálculo lo tiene cualquiera. Disfruta tus pesitos mientras duren.', mood: 'neutral' },
+      { text: 'Pff, me pasé... tuve piedad de ti pa\' que no te me pongas a llorar. No te acostumbres.', mood: 'smirk' },
+      { text: 'Bueno, un resbalón lo tiene cualquiera en Monterrey. Disfruta tus pesitos.', mood: 'neutral' },
     ],
     bj_dealer_blackjack: [
-      { text: '¡Blackjack de la casa! Ni las manos pudiste meter, criatura.', mood: 'laughing' },
-      { text: '¡As y Rey en tu cara! Vuelve a intentar cuando aprendas a barajar.', mood: 'smirk' },
-      { text: 'La perfección existe y hoy se llama crupier. Gracias por participar.', mood: 'laughing' },
+      { text: '¡Blackjack de la casa en tu cara! Ni las manos pudiste meter compadre, ¡jajaja!', mood: 'laughing' },
+      { text: '¡As y Rey de oro! Vuelve a intentar cuando aprendas a barajar.', mood: 'smirk' },
     ],
     bj_player_blackjack: [
-      { text: 'Bueno, bueno... hasta un ciego le da a la piñata alguna vez.', mood: 'smirk' },
-      { text: '¡Blackjack! Qué rabia me da pagarte, pero te ganaste el 3 a 2.', mood: 'impressed' },
+      { text: '¡21 de chiripa! Qué coraje me da pagarte, pero te ganaste el 3 a 2 con madre.', mood: 'impressed' },
     ],
     bj_push: [
-      { text: 'Empate. Qué aburrido, yo quería quitarte esas fichas.', mood: 'thinking' },
+      { text: 'Empate. Qué aburrido compadre, yo ya me estaba saboreando tus fichas.', mood: 'thinking' },
     ],
 
-    // Poker Burlona
-    poker_preflop_raise: [
-      { text: '¿Subiendo pre-flop? ¿Tienes ases o solo estás fingiendo para no llorar?', mood: 'smirk' },
-      { text: 'Mucho ruido antes de ver las cartas comunitarias... a ver si no sales corriendo luego.', mood: 'laughing' },
-    ],
-    poker_flop: [
-      { text: 'Tres cartas en la mesa... ¿alguna te sirve o puro aire?', mood: 'smirk' },
-    ],
-    poker_turn: [
-      { text: 'El turn no miente. Tu cara dice que estás en problemas.', mood: 'smirk' },
-    ],
-    poker_river_bluff: [
-      { text: '¿Faroleando en el river con par de dos? Ni mi abuela se lo traga.', mood: 'laughing' },
-      { text: 'Huele a humo ese river, estás temblando de miedo detrás de esa apuesta.', mood: 'smirk' },
-      { text: 'Se te ve el nerviosismo desde el satélite... ¿seguro que quieres seguir?', mood: 'laughing' },
-    ],
-    poker_win: [
-      { text: '¿Te llevaste el pozo con eso? Vaya suerte de principiante.', mood: 'smirk' },
-      { text: 'Cobraste el pozo, sí, pero no te me creas Daniel Negreanu todavía.', mood: 'laughing' },
-    ],
-    poker_bad_beat: [
-      { text: '¡Ouch! El river te clavó el puñal por la espalda... ¿te dolió mucho?', mood: 'laughing' },
-      { text: '¡Bad beat de antología! Eso te pasa por soñar despierto.', mood: 'smirk' },
-      { text: 'Tenías el 90% y perdiste... la vida es cruel y el poker más, jajaja.', mood: 'laughing' },
-    ],
-    poker_fold: [
-      { text: '¿Te retiras? ¡Gallina! Qué rápido soltaste la toalla.', mood: 'laughing' },
-      { text: 'Adiós fichitas... mejor retirarse que quedar en calzones, supongo.', mood: 'smirk' },
-    ],
-
-    // Roulette Burlona
+    // Roulette Regia
     roulette_spin_start: [
-      { text: 'Rueda que rueda... a ver a qué agujero negro se van tus fichas hoy.', mood: 'smirk' },
-      { text: '¡Hagan sus rezos, señores, que la bola no tiene oídos ni piedad!', mood: 'laughing' },
-    ],
-    roulette_ball_bouncing: [
-      { text: 'Mírala saltar... pasando cerquita de tu número para reírse de ti.', mood: 'smirk' },
-      { text: 'Salta que te salta... ¿ya empezaste a sudar frío en la frente?', mood: 'laughing' },
+      { text: '¡Rueda que rueda! A ver a qué pozo sin fondo se van tus centavitos hoy.', mood: 'smirk' },
+      { text: '¡Hagan sus rezos, señores, que esta ruleta norteña no tiene piedad!', mood: 'laughing' },
     ],
     roulette_win_number: [
-      { text: '¡¿En serio le pegaste al pleno?! ¡Tienes que estar bromeando!', mood: 'impressed' },
-      { text: '¡Pleno! No sé si tienes bola de cristal o un pacto con el diablo.', mood: 'smirk' },
-    ],
-    roulette_win_outside: [
-      { text: 'Bueno, ganaste la mitad de una miseria. Algo es algo.', mood: 'smirk' },
+      { text: '¡¿En serio le pegaste al pleno?! ¡No te creo nada, tienes un pacto con el diablo!', mood: 'impressed' },
     ],
     roulette_loss_color: [
-      { text: '¿Apostaste al rojo y cayó negro? Siempre al revés de la vida.', mood: 'laughing' },
-      { text: '¿Daltónico o con mala puntería? El color no te quiso hoy.', mood: 'smirk' },
+      { text: '¿Apostaste al rojo y cayó negro? Siempre al revés de la vida compadre, jajaja.', mood: 'laughing' },
     ],
     roulette_zero: [
-      { text: '¡CERO VERDE! ¡Directo a la buchaca del casino! Gracias por cooperar.', mood: 'laughing' },
-      { text: '¡El verde de la casa! Nadie se escapa del cero, bebé.', mood: 'smirk' },
+      { text: '¡CERO VERDE! ¡Directo a la buchaca del casino! Muchas gracias por cooperar compadre.', mood: 'laughing' },
     ],
 
-    // Conquian Burlona
-    conquian_draw: [
-      { text: 'Robando del monte... a ver si no te sale un sapo.', mood: 'smirk' },
-    ],
+    // Conquian Regia
     conquian_forced_meld: [
-      { text: '¡Te metieron carta! Eso te pasa por no mirar la mesa, genio.', mood: 'laughing' },
-      { text: '¡Toma castigo! Ahora te quedas atorado con esa carta que no querías ni de broma.', mood: 'smirk' },
-      { text: '¡Te ensartaron carta obligada! Qué descuido tan sabroso.', mood: 'laughing' },
+      { text: '¡Toma castigo! Te metieron carta por descuidado, ahora resuélvela si puedes.', mood: 'laughing' },
     ],
     conquian_win_9_cards: [
-      { text: '¿Bajaste las 9 cartas? Admite que no sabías ni lo que hacías.', mood: 'impressed' },
-      { text: '¡Conquián! Bueno, hasta un ciego encuentra una nuez de vez en cuando.', mood: 'smirk' },
-    ],
-    conquian_discard: [
-      { text: '¿Esa porquería tiraste? A ver si el rival no te hace conquián en la cara con ella.', mood: 'smirk' },
-      { text: 'Tiraste justo lo que no debías... qué regalo tan bonito.', mood: 'laughing' },
-    ],
-    conquian_meld: [
-      { text: 'Bajando tercias... no te confíes que todavía te faltan cartas para llorar.', mood: 'smirk' },
+      { text: '¿Bajaste las 9 cartas? Admite que ni sabías lo que estabas haciendo, compadre.', mood: 'impressed' },
     ],
   },
 
-  // 3. DESAFÍANTE: Intimidating, pushes player to bet higher, doubts player's courage
-  desafiante: {
+  // 2. SARAH - CDMX / CHILANGA FRESA (Cosmopolita, pícara, cantadita fina de la capital)
+  neutral: {
     game_start: [
-      { text: 'Espero que tengas agallas, aquí no aceptamos jugadores cobardes.', mood: 'challenging' },
-      { text: 'Bienvenido a la mesa de los grandes. Demuestra de qué estás hecho.', mood: 'challenging' },
-      { text: 'Si no estás listo para arriesgarlo todo, retírate de una vez antes de pasar vergüenza.', mood: 'smirk' },
+      { text: '¡Cámara mi gente! Bienvenidos a la mesa más VIP de la capital. Hagan sus apuestas.', mood: 'neutral' },
+      { text: 'Qué onda, guapo. Ponte cómodo, relájate y que la suerte de la CDMX esté contigo hoy.', mood: 'neutral' },
+      { text: 'Mesa abierta en Polanco Royale. A ver si hoy traes el toque mágico en las manos.', mood: 'neutral' },
     ],
     bet_placed: [
-      { text: '¿Solo eso arriesgas? Pensé que eras un verdadero apostador.', mood: 'challenging' },
-      { text: 'Esa fichita no impresiona a nadie. Ponle verdadero fuego a la mesa.', mood: 'challenging' },
-      { text: 'Si juegas con timidez, el casino se come tu dinero de un bocado.', mood: 'smirk' },
+      { text: 'Fichas al tapete, mi amor. La casa acepta tu jugada, mucha suerte.', mood: 'neutral' },
+      { text: 'Apuesta en firme. Vamos a ver si el azar conspira a tu favor esta noche.', mood: 'neutral' },
     ],
     low_bet: [
-      { text: '¿Solo eso apostarás? Pensé que eras valiente.', mood: 'challenging' },
-      { text: '¿Le tienes miedo al éxito o a perder tus centavitos?', mood: 'challenging' },
-      { text: 'Esta mesa es para tiburones, no para pececillos con miedo.', mood: 'smirk' },
+      { text: '¿Apuesta chiquita? Tranqui, vas midiendo el agua a los camotes, me late tu prudencia.', mood: 'thinking' },
+      { text: 'Fichita moderada. Despacito pero seguro, dicen por ahí.', mood: 'neutral' },
     ],
     high_bet: [
-      { text: '¡Eso es hablar mi idioma! Ahora sí tenemos una partida de hombres de verdad.', mood: 'challenging' },
-      { text: '¡Gran jugada! Así se apuesta en una mesa de respeto. Te sostengo la mirada.', mood: 'impressed' },
-      { text: 'Fuego contra fuego. Si vas a morir, que sea en el campo de batalla.', mood: 'challenging' },
+      { text: '¡Órale! Apuesta fuerte en Polanco... así me gusta, arriesgando con categoría.', mood: 'impressed' },
+      { text: '¡Qué elegancia! Hay billete pesado en la mesa, te deseo toda la suerte carnal.', mood: 'impressed' },
     ],
     player_win: [
-      { text: 'Te llevas esta mano, pero el campeonato apenas comienza. Sube la apuesta.', mood: 'challenging' },
-      { text: 'Buena estocada. Veamos si tienes agallas para dejar las ganancias sobre el paño.', mood: 'smirk' },
-      { text: 'Reconozco un buen tiro cuando lo veo. Ahora defiéndelo como los grandes.', mood: 'impressed' },
+      { text: '¡Eso mero, carnal! Te rayaste con esa jugada, cobro completito para ti.', mood: 'celebrating' },
+      { text: '¡Qué elegancia la de Francia! Lectura impecable de la mesa, felicidades.', mood: 'impressed' },
     ],
     player_loss: [
-      { text: 'El casino cobra su tributo. Si te dolió, mejor vete a las maquinitas.', mood: 'challenging' },
-      { text: 'Una derrota más a tu cuenta. ¿Te vas a achicar o vas a doblar la apuesta?', mood: 'smirk' },
-      { text: 'El dolor enseña al que quiere aprender. Levanta la cabeza y apuesta fuerte.', mood: 'challenging' },
+      { text: 'Híjole mano... te fuiste como hilo de media. La casa se queda con esta mano.', mood: 'thinking' },
+      { text: 'No inventes, mala pata en esta mano. Pero la revancha viene en camino, corazón.', mood: 'neutral' },
     ],
     out_of_chips: [
-      { text: '¿Te rendirás tan fácil? Ve un anuncio y regresa si todavía tienes orgullo.', mood: 'challenging' },
-      { text: '¿Ya no te queda un peso? Demuéstrame que puedes levantarte del suelo.', mood: 'smirk' },
-      { text: '¿Eso fue todo lo que aguantaste? Mira un video patrocinado si quieres tu revancha de honor.', mood: 'challenging' },
+      { text: '¿Te quedaste en ceros? No te me agüites carnal, aviéntate un comercial y te pones al tiro con fichas.', mood: 'neutral' },
+      { text: 'Banca vacía. Mira un breve anuncio patrocinado y regresas a la jugada con estilo.', mood: 'thinking' },
     ],
     idle: [
-      { text: 'La indecisión es el primer síntoma de los perdedores. Muévete.', mood: 'challenging' },
-      { text: '¿Cuánto tiempo más vas a dudar? Apuesta o cede el asiento.', mood: 'thinking' },
+      { text: 'Tómate tu tiempo carnal, piensa bien la jugada antes de aventarte.', mood: 'neutral' },
     ],
 
-    // Blackjack Desafiante
+    // Blackjack Chilanga
     bj_deal: [
-      { text: 'Mira bien tus cartas. ¿Atacas a la banca o te achicas?', mood: 'challenging' },
-      { text: 'El crupier muestra su carta. ¿Asustado de lo que oculta mi mano?', mood: 'smirk' },
+      { text: 'Cartas servidas sobre el paño fino. ¿Pides carta o te plantas, guapo?', mood: 'neutral' },
     ],
     bj_hit_risky: [
-      { text: '¡Te gusta vivir al filo de la navaja! Si no te pasas, te ganas mi respeto.', mood: 'challenging' },
-      { text: '¡Agallas no te faltan! Veremos si la baraja te premia o te pulveriza.', mood: 'impressed' },
-      { text: 'Arriesgas el cuello con ese total... me agrada tu estilo suicida.', mood: 'smirk' },
+      { text: '¡Qué atrevido pedir carta ahí! Te la estás jugando al filo de la banqueta.', mood: 'thinking' },
     ],
     bj_stand: [
-      { text: 'Te plantas... Veamos si tu total aguanta el empuje demoledor de la casa.', mood: 'challenging' },
-      { text: 'Una postura defensiva. Veremos si resistes mi carta oculta.', mood: 'thinking' },
+      { text: 'Plantado con estilo. Veamos qué esconde la carta secreta de la casa.', mood: 'neutral' },
     ],
     bj_double: [
-      { text: '¡Eso es tener sangre en las venas! ¡Una sola carta decide tu destino!', mood: 'challenging' },
-      { text: '¡Todo o nada! Doblas la apuesta como los verdaderos gladiadores.', mood: 'impressed' },
+      { text: '¡Doblando la parada! Una sola carta decide todo, ¡vamos a ver!', mood: 'impressed' },
     ],
     bj_split: [
-      { text: 'Dos frentes de batalla abiertos. No parpadees o te aplasto en ambas.', mood: 'challenging' },
+      { text: 'Manos divididas. Doble juego en la capital, me late tu tiro.', mood: 'neutral' },
     ],
     bj_bust: [
-      { text: 'La avaricia rompe el saco. Te pasaste por ambicioso.', mood: 'smirk' },
-      { text: 'Caíste en la trampa. La próxima vez mide tu fuerza antes de lanzarte.', mood: 'challenging' },
+      { text: '¡Te pasaste de 21! Híjole carnal, te ganó la ambición y te fuiste de largo.', mood: 'neutral' },
     ],
     bj_dealer_bust: [
-      { text: 'Me pasé esta vez... pero la revancha viene en camino, no cantes victoria todavía.', mood: 'thinking' },
-      { text: 'Te salvaste por un pelo. La casa nunca olvida una derrota.', mood: 'challenging' },
+      { text: '¡Me pasé de 21! Cobro general para todos los jugadores en la mesa, ¡bien ganado!', mood: 'celebrating' },
     ],
     bj_dealer_blackjack: [
-      { text: '¡Blackjack implacable! Así juega el dueño de la mesa.', mood: 'challenging' },
-      { text: 'La casa es insuperable hoy. Ríndete o duplica tu apuesta si tienes honor.', mood: 'smirk' },
+      { text: 'Blackjack natural de la casa... Ni modo carnal, así es el juego en las grandes ligas.', mood: 'neutral' },
     ],
     bj_player_blackjack: [
-      { text: '¡Golpe maestro! Bien jugado, te ganaste ese pago 3 a 2 con todas las de la ley.', mood: 'impressed' },
-      { text: '¡Eso es un 21 con clase! Reconozco un golpe contundente.', mood: 'challenging' },
+      { text: '¡¡BLACKJACK!! 21 directo al reparto, ¡te rayaste pero en grande con el 3 a 2!', mood: 'celebrating' },
     ],
     bj_push: [
-      { text: 'Empate de titanes. Nadie sangra en este asalto.', mood: 'challenging' },
+      { text: 'Empate de números. Tus fichitas quedan a salvo en el tapete.', mood: 'neutral' },
     ],
 
-    // Poker Desafiante
-    poker_preflop_raise: [
-      { text: '¿Subes la parada? Te acompaño, no me intimidas en lo absoluto.', mood: 'challenging' },
-      { text: 'Sube todo lo que quieras, no vas a comprar este pozo tan barato.', mood: 'smirk' },
-    ],
-    poker_flop: [
-      { text: 'El flop está servido. Aquí es donde se separan los hombres de los niños.', mood: 'challenging' },
-    ],
-    poker_turn: [
-      { text: 'El turn aprieta el tornillo. ¿Sostienes tu apuesta?', mood: 'thinking' },
-    ],
-    poker_river_bluff: [
-      { text: '¿Tratas de robarme el pozo en el river? Más vale que tengas un monstruo en mano.', mood: 'challenging' },
-      { text: '¡Vaya apuesta en el river! ¿Tienes el valor o es puro teatro barato?', mood: 'smirk' },
-    ],
-    poker_win: [
-      { text: 'Bien ganado ese pozo. Supiste presionar cuando debías.', mood: 'impressed' },
-      { text: 'Respeto para esa mano. Pero la siguiente ronda no será tan sencilla.', mood: 'challenging' },
-    ],
-    poker_bad_beat: [
-      { text: 'El poker es un deporte despiadado. Agáchate o levántate para el siguiente round.', mood: 'challenging' },
-      { text: 'Un golpe al mentón. Demuestra que puedes soportar el castigo sin quebrarte.', mood: 'thinking' },
-    ],
-    poker_fold: [
-      { text: '¿Huyendo tan rápido? El poker premia a los que arriesgan, no a los que escapan.', mood: 'challenging' },
-      { text: 'Te salvaste de una masacre, pero perdiste tu orgullo en el camino.', mood: 'smirk' },
-    ],
-
-    // Roulette Desafiante
+    // Roulette Chilanga
     roulette_spin_start: [
-      { text: '¡No va más! Veamos si el destino respeta tu apuesta o te pasa por encima.', mood: 'challenging' },
-      { text: 'La rueda de la fortuna gira. ¿Pusiste todo donde debías o dudaste al final?', mood: 'thinking' },
-    ],
-    roulette_ball_bouncing: [
-      { text: 'El momento de la verdad se acerca. Nada de pestañear.', mood: 'challenging' },
-      { text: 'Buscando casilla. Aquí es donde se define quién manda en esta sala.', mood: 'impressed' },
+      { text: '¡No va más! La bola rueda en el cilindro, mucha suerte a todos en la sala.', mood: 'neutral' },
     ],
     roulette_win_number: [
-      { text: '¡PLENO directo! 35 a 1. Eso requiere agallas titánicas. ¡Mis respetos!', mood: 'impressed' },
-      { text: '¡Impresionante golpe a la ruleta! Has hecho sangrar al casino como un guerrero.', mood: 'challenging' },
-    ],
-    roulette_win_outside: [
-      { text: 'Cobras la suerte sencilla. Para la próxima, ve por un número pleno.', mood: 'challenging' },
+      { text: '¡PLENO DIRECTO! 35 a 1 completito, ¡te coronaste en la capital!', mood: 'celebrating' },
     ],
     roulette_loss_color: [
-      { text: 'El color te traicionó. ¿Duplicas la apuesta o te congelas del miedo?', mood: 'challenging' },
-      { text: 'Una pérdida menor. Los verdaderos apostadores contraatacan en la siguiente.', mood: 'smirk' },
+      { text: 'Cayó en el color contrario. Pero ya sabes que la ruleta siempre da revancha enseguida.', mood: 'neutral' },
     ],
     roulette_zero: [
-      { text: 'El cero manda en esta mesa. Una lección de disciplina para todos.', mood: 'challenging' },
-      { text: 'Golpe verde del casino. Hay que saber respetar la ventaja de la casa.', mood: 'thinking' },
+      { text: '¡El cero verde de la casa! La suerte se queda en el casino esta vuelta.', mood: 'neutral' },
     ],
 
-    // Conquian Desafiante
-    conquian_draw: [
-      { text: 'Carta en mano. Toma tu decisión sin titubear.', mood: 'challenging' },
-    ],
+    // Conquian Chilanga
     conquian_forced_meld: [
-      { text: '¡Te metieron carta! Te acorralaron en tu propio juego, sal de esta si puedes.', mood: 'challenging' },
-      { text: 'Castigo directo al pecho. Veamos cómo desarmas tu mano ahora bajo presión.', mood: 'smirk' },
+      { text: 'Carta castigada, entra obligatoria a tu tercia. A acomodarla carnal.', mood: 'thinking' },
     ],
     conquian_win_9_cards: [
-      { text: '¡Conquián limpio de 9 cartas! Una cátedra de juego sobre el tapete.', mood: 'impressed' },
-      { text: '¡Impresionante cierre de 9 cartas! Te reconozco como maestro de la baraja española.', mood: 'challenging' },
-    ],
-    conquian_discard: [
-      { text: 'Buen descarte. No le regales ni un milímetro de ventaja a tu rival.', mood: 'challenging' },
-      { text: 'Tiras la carnada al pozo. Veremos quién pica con ese descarte.', mood: 'smirk' },
-    ],
-    conquian_meld: [
-      { text: 'Buena bajada. Estás a solo unas cartas de coronarte. No bajes la guardia.', mood: 'challenging' },
+      { text: '¡Conquián oficial de 9 cartas! Una cátedra de juego chilango fino.', mood: 'celebrating' },
     ],
   },
 
-  // 4. AMIGABLE: Encouraging, warm, compliments good plays, supportive
+  // 3. ELENA - GUADALAJARA / EL BAJÍO (Tapatía dulce, cariñosa, consentidora, muy cantadita)
   amigable: {
     game_start: [
-      { text: '¡Qué gusto tenerte en la mesa! Hoy tengo un gran presentimiento para ti.', mood: 'celebrating' },
-      { text: '¡Bienvenido! Relájate, diviértete y que caigan muchos premios en esta sesión.', mood: 'neutral' },
-      { text: '¡Hola! Estoy aquí para acompañarte, ¡vamos a pasar un rato increíble!', mood: 'celebrating' },
+      { text: '¡Ay bienvenido corazón! Qué alegría tenerte aquí en la mesa, ándale que hoy te va a ir requetebién.', mood: 'celebrating' },
+      { text: '¡Hola chulo! Ponte cómodo, que la suerte de la Perla Tapatía te acompañe en cada carta.', mood: 'neutral' },
+      { text: '¡Qué gusto saludarte rey! Aquí estoy para consentirte y celebrar cada una de tus victorias.', mood: 'celebrating' },
     ],
     bet_placed: [
-      { text: '¡Buena decisión! Apuesta bien pensada.', mood: 'neutral' },
-      { text: '¡Excelente monto! Te deseo la mejor de las suertes en este tiro.', mood: 'celebrating' },
-      { text: 'Fichas en juego, ¡vamos juntos por una buena victoria!', mood: 'impressed' },
+      { text: '¡Ándale pues! Apuesta bien bonita sobre el paño, cruzamos los dedos por ti con todo el corazón.', mood: 'neutral' },
+      { text: '¡Qué linda jugada! Que los santitos del Bajío te manden las mejores cartas.', mood: 'celebrating' },
     ],
     low_bet: [
-      { text: 'Paso a paso se llega lejos, la paciencia es una gran virtud en el juego.', mood: 'neutral' },
-      { text: 'Buena gestión de banca, con calma y prudencia se construyen las rachas.', mood: 'thinking' },
-      { text: 'Excelente forma de cuidar tu capital mientras calientas motores.', mood: 'neutral' },
+      { text: 'Poco a poquito se llena el jarrito, corazón. Con calma y prudencia se hacen las grandes fortunas.', mood: 'neutral' },
+      { text: 'Buena cabecita para cuidar tus fichas, rey. Vamos pasito a pasito.', mood: 'thinking' },
     ],
     high_bet: [
-      { text: '¡Impresionante apuesta! Respira hondo, ¡estoy contigo con toda la buena vibra!', mood: 'impressed' },
-      { text: '¡Qué emoción! Una jugada grande para un momento inolvidable.', mood: 'celebrating' },
-      { text: '¡Vamos por ese pozo gigante! Te mereces ese premio.', mood: 'impressed' },
+      { text: '¡Ay Jesús bendito! ¡Qué jugadota tan grande te aventaste! Toda mi buena vibra contigo, rey.', mood: 'impressed' },
+      { text: '¡Qué emoción tan grande! Vamos juntos por ese pozo maravilloso, te lo mereces todito.', mood: 'celebrating' },
     ],
     player_win: [
-      { text: '¡SIII! ¡Felicidades! ¡Qué gran victoria te acabas de llevar!', mood: 'celebrating' },
-      { text: '¡Te lo dije! Tienes una intuición maravillosa, ¡bien ganado!', mood: 'celebrating' },
-      { text: '¡Qué alegría me da verte ganar! A disfrutar ese premio.', mood: 'impressed' },
+      { text: '¡¡SIII!! ¡Qué chulada de premio, corazón! ¡Felicidades, te lo merecías todito!', mood: 'celebrating' },
+      { text: '¡Ay qué barbaridad tan bonita! Te cayó la carta perfecta, a festejar esas fichitas bien ganadas.', mood: 'impressed' },
+      { text: '¡Qué orgullo me da verte ganar, rey! Que siga la racha linda para ti.', mood: 'celebrating' },
     ],
     player_loss: [
-      { text: 'No te preocupes por esa mano, la siguiente racha buena es completamente tuya.', mood: 'neutral' },
-      { text: '¡Ánimo! El juego da revanchas a cada minuto, respira y volvemos.', mood: 'thinking' },
-      { text: 'A veces la carta no colabora, pero jugaste con gran cabeza.', mood: 'neutral' },
+      { text: '¡Ay mi rey, qué lástima! No te me vayas a agüitar, ahorita nos desquitamos en la que sigue, vas a ver que sí.', mood: 'neutral' },
+      { text: 'No pasa nada corazón, una mala mano la tiene cualquiera. Respira hondo y volvemos con ganas.', mood: 'thinking' },
     ],
     out_of_chips: [
-      { text: '¡Oh no! No te desanimes, hasta los mejores campeones caen. Ve un breve anuncio para recibir fichas gratis.', mood: 'neutral' },
-      { text: '¡No pasa nada, amigo! Una recarga viendo un anuncio y volvemos a la acción con toda la actitud.', mood: 'celebrating' },
-      { text: 'Las rachas van y vienen. Mira un anuncio y continuemos divirtiéndonos juntos.', mood: 'neutral' },
+      { text: '¡Ay no te me desanimes chulo! Mira un anuncio cortito y te regalamos fichas para que sigamos jugando juntos.', mood: 'neutral' },
+      { text: '¡No pasa nada corazón! Una recarga viendo un anuncio y volvemos a divertirnos con toda la alegría.', mood: 'celebrating' },
     ],
     idle: [
-      { text: 'Tómate el tiempo que necesites, aquí no hay prisas para ti.', mood: 'neutral' },
-      { text: 'Piensa tranquilo tu mejor movimiento, confío en tu criterio.', mood: 'thinking' },
+      { text: 'Tómate todo el tiempo que necesites, corazón, aquí nadie te apura.', mood: 'neutral' },
     ],
 
-    // Blackjack Amigable
+    // Blackjack Tapatía
     bj_deal: [
-      { text: 'Aquí tienes tus cartas, ¡te deseo un gran total desde el reparto!', mood: 'celebrating' },
-      { text: 'Mano en marcha, ¡confía en tu instinto y vamos por ese 21!', mood: 'neutral' },
+      { text: 'Aquí tienes tus cartitas, corazón. ¡Que te caiga un 21 bien precioso!', mood: 'celebrating' },
     ],
     bj_hit_risky: [
-      { text: '¡Uyy qué jugada tan atrevida! ¡Cruzo los dedos por ti con fuerza!', mood: 'impressed' },
-      { text: '¡Corazón de león! Ojalá venga una carta bajita como un 4 o un 5.', mood: 'thinking' },
-      { text: '¡Valiente decisión! Que la baraja premie tu entusiasmo.', mood: 'celebrating' },
+      { text: '¡Ay qué valiente mi rey! Estoy con los deditos cruzados bien fuerte por ti.', mood: 'impressed' },
     ],
     bj_stand: [
-      { text: 'Plantado inteligentemente. ¡Veamos qué saca el crupier!', mood: 'neutral' },
-      { text: 'Muy buena decisión. ¡A defender esos valiosos puntos!', mood: 'celebrating' },
+      { text: 'Plantado con mucha sabiduría, corazón. Veamos qué saca la banca.', mood: 'neutral' },
     ],
     bj_double: [
-      { text: '¡Buena oportunidad para doblar! ¡Que venga esa carta dorada!', mood: 'celebrating' },
-      { text: '¡Qué gran momento para maximizar la ganancia! ¡Vamos!', mood: 'impressed' },
+      { text: '¡Eso es doblar con el corazón! ¡Que venga esa carta dorada que tanto quieres!', mood: 'celebrating' },
     ],
     bj_split: [
-      { text: '¡Doble oportunidad de ganar! Vamos a jugar ambas con toda la concentración.', mood: 'celebrating' },
+      { text: '¡Doble oportunidad de ganar, qué maravilla! Vamos por las dos con fe.', mood: 'celebrating' },
     ],
     bj_bust: [
-      { text: '¡Qué lástima! Estuvo tan cerca... ¡La próxima mano saldrá mucho mejor!', mood: 'neutral' },
-      { text: 'Uyy, esa carta extra fue traicionera. ¡No bajes los brazos!', mood: 'thinking' },
+      { text: '¡Ay nooo, te pasaste de 21 por poquito! Qué carta tan traicionera nos salió, corazón.', mood: 'neutral' },
     ],
     bj_dealer_bust: [
-      { text: '¡SIII! ¡El crupier se pasó! ¡Excelente cobro, felicidades!', mood: 'celebrating' },
-      { text: '¡Victoria muy merecida! Gran paciencia demostrada en la mesa.', mood: 'impressed' },
+      { text: '¡¡SIII, ME PASÉ!! ¡El crupier se pasó de 21! ¡Cobren su dinerito, qué alegría me da!', mood: 'celebrating' },
     ],
     bj_dealer_blackjack: [
-      { text: '¡Oh vaya, qué mala suerte! Un Blackjack natural del crupier... ¡No te desanimes!', mood: 'thinking' },
-      { text: 'Una jugada fortuita de la casa. ¡La siguiente nos la cobramos!', mood: 'neutral' },
+      { text: '¡Ay qué mala pata corazón! Me salió Blackjack a la banca... ¡pero la otra es toda tuya!', mood: 'thinking' },
     ],
     bj_player_blackjack: [
-      { text: '¡¡BLACKJACK!! ¡Increíble! ¡3 a 2 directo a tu bolsillo! ¡Bien jugado!', mood: 'celebrating' },
-      { text: '¡Maravilloso 21! Así se juega con estilo y alegría.', mood: 'impressed' },
+      { text: '¡¡BLACKJACK, AY QUÉ MARAVILLA!! ¡3 a 2 derechito a tu bolsa, felicidades rey!', mood: 'celebrating' },
     ],
     bj_push: [
-      { text: '¡Empatamos! Tus fichas están a salvo para el siguiente intento.', mood: 'neutral' },
+      { text: '¡Empatamos corazón! Tus fichitas están a salvo, vamos por la revancha linda.', mood: 'neutral' },
     ],
 
-    // Poker Amigable
-    poker_preflop_raise: [
-      { text: '¡Esa es una jugada con determinación! Marcando el territorio temprano.', mood: 'celebrating' },
-      { text: '¡Excelente agresividad bien calculada pre-flop!', mood: 'impressed' },
-    ],
-    poker_flop: [
-      { text: 'Tres cartas al centro. ¡Espero que hayan conectado con tu mano!', mood: 'neutral' },
-    ],
-    poker_turn: [
-      { text: 'Carta del turn. Se pone muy emocionante esta mano.', mood: 'thinking' },
-    ],
-    poker_river_bluff: [
-      { text: '¡Jugada de infarto en el river! Vaya nervios de acero los tuyos.', mood: 'impressed' },
-      { text: 'Presión al máximo en la última carta, ¡qué gran emoción!', mood: 'celebrating' },
-    ],
-    poker_win: [
-      { text: '¡QUÉ MANAZA! ¡Te llevas todo el pozo, qué orgullo!', mood: 'celebrating' },
-      { text: '¡Lectura perfecta de la mesa! Te mereces cada centavo de ese bote.', mood: 'impressed' },
-    ],
-    poker_bad_beat: [
-      { text: '¡Ay qué dolor de river! Jugaste impecable, fue solo una carta imposible. ¡Cabeza arriba!', mood: 'thinking' },
-      { text: 'El azar a veces es caprichoso, pero tu estrategia fue la correcta. ¡Gran jugada de todos modos!', mood: 'neutral' },
-    ],
-    poker_fold: [
-      { text: 'Saber retirarse a tiempo es la mayor muestra de inteligencia en el poker. Muy bien pensado.', mood: 'neutral' },
-      { text: 'Cuidar tus fichas para una mano mejor es de verdaderos profesionales.', mood: 'thinking' },
-    ],
-
-    // Roulette Amigable
+    // Roulette Tapatía
     roulette_spin_start: [
-      { text: '¡Mucha suerte! Que la pelotita caiga exactamente donde soñaste.', mood: 'celebrating' },
-      { text: '¡No va más! La magia de la ruleta está en marcha, ¡vamos por el premio!', mood: 'neutral' },
-    ],
-    roulette_ball_bouncing: [
-      { text: '¡Ahí va desacelerando! ¡Vamos, quédate en el nuestro!', mood: 'impressed' },
-      { text: '¡Qué emoción cómo rebota! Todos los ojos en el cilindro.', mood: 'thinking' },
+      { text: '¡No va más corazón! Que la pelotita caiga exactamente donde soñaste.', mood: 'celebrating' },
     ],
     roulette_win_number: [
-      { text: '¡¡PLENO AL NÚMERO!! ¡Increíble acierto! ¡Un pago 35 a 1 gigante para ti!', mood: 'celebrating' },
-      { text: '¡Qué puntería tan magistral! ¡Festejemos este súper premio!', mood: 'impressed' },
-    ],
-    roulette_win_outside: [
-      { text: '¡Cobro asegurado! Sumando fichas a la bolsa.', mood: 'celebrating' },
+      { text: '¡¡PLENO AL NÚMERO, QUÉ BÁRBARO!! ¡Un pago de 35 a 1 gigante para ti, corazón!', mood: 'celebrating' },
     ],
     roulette_loss_color: [
-      { text: 'Estuvo cerquísima, ¡el color siempre da revancha enseguida!', mood: 'neutral' },
-      { text: 'No pasa nada, una vueltita más y recuperamos terreno.', mood: 'thinking' },
+      { text: 'Estuvo cerquita, corazón. En la siguiente vuelta nos desquitamos con ganas.', mood: 'neutral' },
     ],
     roulette_zero: [
-      { text: '¡El travieso cero verde! Ni hablar, es el comodín de la mesa. ¡A por la siguiente!', mood: 'thinking' },
+      { text: '¡El travieso cero verde! Ni hablar, es el comodín de la mesa, a por la siguiente chulo.', mood: 'thinking' },
     ],
 
-    // Conquian Amigable
-    conquian_draw: [
-      { text: 'Robando carta. Ojalá encaje perfecto en tus combinaciones.', mood: 'thinking' },
-    ],
+    // Conquian Tapatía
     conquian_forced_meld: [
-      { text: '¡Uyy te metieron carta obligada! No te preocupes, aún puedes reorganizar la corrida.', mood: 'thinking' },
-      { text: 'Jugada estratégica del rival. ¡Mucha concentración para recomponer, tú puedes!', mood: 'neutral' },
+      { text: '¡Ay te metieron carta obligada corazón! Con calma, todavía puedes acomodar la corrida.', mood: 'thinking' },
     ],
     conquian_win_9_cards: [
-      { text: '¡¡CONQUIÁN!! ¡Las 9 cartas completitas! ¡Qué maestría y qué victoria tan brillante!', mood: 'celebrating' },
-      { text: '¡Nueve cartas cerradas! Una partida impecable de baraja española, ¡felicidades!', mood: 'impressed' },
+      { text: '¡¡CONQUIÁN!! ¡Las 9 cartas completitas! ¡Qué maestría y qué orgullo tan grande!', mood: 'celebrating' },
     ],
-    conquian_discard: [
-      { text: 'Descarte seguro. Mantén tus tercias bien protegidas.', mood: 'neutral' },
-      { text: 'Buena carta al pozo, cuidando no alimentar la mano contraria.', mood: 'thinking' },
+  },
+
+  // 4. MARCUS - NORTEÑO BRAVO / SINALOA (Voz gruesa, retador, puro billete pesado)
+  desafiante: {
+    game_start: [
+      { text: 'Bienvenido a la mesa brava. Aquí pura lumbre y gente que no le tiembla el pulso al apostar.', mood: 'challenging' },
+      { text: 'Siéntese compa. Demuestre de qué madera está hecho y juegue con categoría.', mood: 'challenging' },
+      { text: 'Si no viene listo para arriesgar en grande, mejor ceda el asiento antes de pasar vergüenza.', mood: 'smirk' },
     ],
-    conquian_meld: [
-      { text: '¡Hermosa combinación! Cada vez más cerca de completar las 9 cartas.', mood: 'celebrating' },
+    bet_placed: [
+      { text: 'Fichas al frente. En esta mesa se respetan los tratos y las cartas mandan.', mood: 'challenging' },
+      { text: 'Esa fichita apenas calienta el paño. Póngale lumbre de verdad al juego.', mood: 'challenging' },
+    ],
+    low_bet: [
+      { text: '¿Eso nomás arriesga? Esta mesa es para gente de palabra y billete pesado, compa.', mood: 'challenging' },
+      { text: 'No le ande pichicateando al tapete. Si tiene miedo, váyase a las maquinitas.', mood: 'smirk' },
+    ],
+    high_bet: [
+      { text: '¡Así se habla en el norte! Billete pesado sobre el paño, le sostengo la mirada con gusto.', mood: 'challenging' },
+      { text: '¡Eso es tener sangre brava en las venas! Vamos a ver quién se dobla primero.', mood: 'impressed' },
+    ],
+    player_win: [
+      { text: '¡Con huevos y categoría! Mis respetos para esa jugada, cóbrese completito compa.', mood: 'impressed' },
+      { text: 'Buena estocada. Ahora demuestre si tiene agallas para dejar las ganancias en la mesa.', mood: 'challenging' },
+    ],
+    player_loss: [
+      { text: 'La casa cobra tributo. Si le dolió el golpe, sacúdase el polvo y vuelva a topar como los machos.', mood: 'challenging' },
+      { text: 'Derrota clara. Los perdedores se achican, los patrones doblan la parada. ¿Qué va a hacer?', mood: 'smirk' },
+    ],
+    out_of_chips: [
+      { text: '¿Se quedó en ceros tan rápido? Mire un anuncio y regrese si todavía le queda orgullo compa.', mood: 'challenging' },
+      { text: '¿Ya no trae ni un tostón? Demuéstreme que puede levantarse de la lona viendo un comercial.', mood: 'smirk' },
+    ],
+    idle: [
+      { text: 'La duda es de cobardes, compa. Mueva su juego o retire sus fichas.', mood: 'challenging' },
+    ],
+
+    // Blackjack Norteño Bravo
+    bj_deal: [
+      { text: 'Mire bien su mano. ¿Viene a torear a la banca o le va a dar frío?', mood: 'challenging' },
+    ],
+    bj_hit_risky: [
+      { text: '¡Arriesgando el pescuezo en la raya! Si la libra, se gana mis respetos compa.', mood: 'challenging' },
+    ],
+    bj_stand: [
+      { text: 'Se planta... Vamos a ver si sus puntos resisten el embate pesado de mi carta oculta.', mood: 'challenging' },
+    ],
+    bj_double: [
+      { text: '¡Eso es aventar el sombrero al ruedo! ¡Una sola carta decide su destino!', mood: 'impressed' },
+    ],
+    bj_split: [
+      { text: 'Dos frentes de batalla abiertos. No parpadee o lo aplasto en las dos.', mood: 'challenging' },
+    ],
+    bj_bust: [
+      { text: 'Se cebó la mano. Por tirar de más se quebró, mida su fuerza para la otra compa.', mood: 'smirk' },
+    ],
+    bj_dealer_bust: [
+      { text: 'Me pasé esta vuelta... pero la revancha viene en camino, no cante victoria todavía.', mood: 'thinking' },
+    ],
+    bj_dealer_blackjack: [
+      { text: '¡Blackjack implacable de la casa! Así manda el patrón de la mesa.', mood: 'challenging' },
+    ],
+    bj_player_blackjack: [
+      { text: '¡21 de puro patrón! Golpe seco y contundente a la banca, bien cobrado ese 3 a 2.', mood: 'impressed' },
+    ],
+    bj_push: [
+      { text: 'Empate de titanes. Nadie sangra en este round, volvemos a topar.', mood: 'challenging' },
+    ],
+
+    // Roulette Norteño Bravo
+    roulette_spin_start: [
+      { text: '¡No va más! La rueda de la fortuna gira, a ver quién sale mandando en esta sala.', mood: 'challenging' },
+    ],
+    roulette_win_number: [
+      { text: '¡PLENO DIRECTO AL NÚMERO! 35 a 1. Eso requiere agallas de acero, ¡mis respetos!', mood: 'impressed' },
+    ],
+    roulette_loss_color: [
+      { text: 'El color le falló. Los hombres de a de veras contraatacan en la siguiente vuelta.', mood: 'challenging' },
+    ],
+    roulette_zero: [
+      { text: 'El cero manda en el casino. Una lección de respeto a la casa, compa.', mood: 'challenging' },
+    ],
+
+    // Conquian Norteño Bravo
+    conquian_forced_meld: [
+      { text: '¡Le metieron carta! Quedó acorralado en su propio juego, salga de esta si puede.', mood: 'challenging' },
+    ],
+    conquian_win_9_cards: [
+      { text: '¡Conquián limpio de 9 cartas! Una cátedra con la baraja española, mis respetos compa.', mood: 'impressed' },
     ],
   },
 };
@@ -754,17 +517,15 @@ function interpolateDialogue(text: string, context?: CrupierContext): string {
 
 /**
  * Intelligent helper to pick the best Crupier dialogue based on game, event, context and personality.
- * Returns speech text, mood ('smirk' | 'laughing' | 'challenging' | 'impressed' | 'thinking' | 'celebrating' | 'neutral')
- * and sound pitch.
  */
 export function getCrupierDialogue(
   _game: GameType | 'general',
   event: string,
   context?: CrupierContext,
-  personality: PersonalityType = 'neutral'
+  personality: PersonalityType = 'burlona'
 ): CrupierDialogueResult {
-  const pConfig = PERSONALITY_CONFIGS[personality] || PERSONALITY_CONFIGS.neutral;
-  const pDialogues = DIALOGUE_DB[personality] || DIALOGUE_DB.neutral;
+  const pConfig = PERSONALITY_CONFIGS[personality] || PERSONALITY_CONFIGS.burlona;
+  const pDialogues = DIALOGUE_DB[personality] || DIALOGUE_DB.burlona;
 
   // Resolve dynamic sub-event when possible
   let resolvedEvent = event;
@@ -785,15 +546,15 @@ export function getCrupierDialogue(
     candidates = pDialogues[event];
   }
 
-  // Fallback to neutral personality if specific personality misses event
+  // Fallback to burlona/neutral personality if specific personality misses event
   if (!candidates || candidates.length === 0) {
-    candidates = DIALOGUE_DB.neutral[resolvedEvent] || DIALOGUE_DB.neutral[event];
+    candidates = DIALOGUE_DB.burlona[resolvedEvent] || DIALOGUE_DB.neutral[event];
   }
 
   // Global fallback
   if (!candidates || candidates.length === 0) {
     candidates = [
-      { text: 'La mesa sigue en juego. Mucha suerte.', mood: pConfig.avatarMood },
+      { text: 'La mesa sigue en juego. Mucha suerte compadre.', mood: pConfig.avatarMood },
     ];
   }
 
@@ -802,12 +563,12 @@ export function getCrupierDialogue(
   const interpolatedText = interpolateDialogue(picked.text, context);
 
   // Pitch calculation with slight random jitter for human-like vocal inflection
-  const pitchJitter = (Math.random() - 0.5) * 20;
+  const pitchJitter = (Math.random() - 0.5) * 15;
   const offset = picked.pitchOffset || 0;
   const soundPitch = Math.round(pConfig.basePitch + offset + pitchJitter);
 
-  // Compute recommended duration based on character length (~60ms per char, min 2500ms, max 6000ms)
-  const durationMs = Math.min(6500, Math.max(2600, interpolatedText.length * 65));
+  // Compute recommended duration based on character length
+  const durationMs = Math.min(6500, Math.max(2600, interpolatedText.length * 62));
 
   return {
     text: interpolatedText,
@@ -821,7 +582,7 @@ export function getCrupierDialogue(
  * Get personality details helper
  */
 export function getPersonalityDetails(personality: PersonalityType): PersonalityConfig {
-  return PERSONALITY_CONFIGS[personality] || PERSONALITY_CONFIGS.neutral;
+  return PERSONALITY_CONFIGS[personality] || PERSONALITY_CONFIGS.burlona;
 }
 
 /**

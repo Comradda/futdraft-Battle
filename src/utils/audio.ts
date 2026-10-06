@@ -288,11 +288,11 @@ class SoundEngine {
   }
 
   // ==========================================
-  // 4. ATTRACTIVE VOICE SYNTHESIS (WEB SPEECH API)
+  // 4. REGIONAL MEXICAN VOICE SYNTHESIS
   // ==========================================
 
   /**
-   * Speaks dealer dialogue using attractive seductive/charismatic voice
+   * Speaks dealer dialogue using authentic regional Mexican cadence and tuning
    */
   public speakDealer(text: string, personality: PersonalityType = 'burlona') {
     if (!this.enabled) return;
@@ -309,37 +309,76 @@ class SoundEngine {
       utterance.lang = 'es-MX';
 
       const voices = window.speechSynthesis.getVoices();
-      const isFemale = personality === 'burlona' || personality === 'amigable' || personality === 'neutral';
-
       const spanishVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('es'));
-      const preferred =
-        spanishVoices.find((v) => {
-          const name = v.name.toLowerCase();
-          if (isFemale) {
+
+      // Regional Mexican vocal profiles
+      if (personality === 'burlona') {
+        // Valeria (Monterrey / Regia): Golpeteadito norteño rápido, picudo y burlón
+        const regiaVoice =
+          spanishVoices.find((v) => {
+            const name = v.name.toLowerCase();
             return (
               name.includes('paulina') ||
-              name.includes('monica') ||
-              name.includes('mónica') ||
-              name.includes('sabina') ||
-              name.includes('luciana') ||
-              name.includes('helena') ||
-              name.includes('female')
+              name.includes('angélica') ||
+              name.includes('angelica') ||
+              (name.includes('mexico') && !name.includes('male'))
             );
-          } else {
-            return name.includes('jorge') || name.includes('diego') || name.includes('carlos') || name.includes('male');
-          }
-        }) || spanishVoices[0];
+          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
 
-      if (preferred) {
-        utterance.voice = preferred;
-      }
+        if (regiaVoice) utterance.voice = regiaVoice;
+        utterance.pitch = 1.15; // Tono picudo norteño
+        utterance.rate = 1.04;  // Cadencia rápida y segura
+      } else if (personality === 'amigable') {
+        // Elena (Guadalajara / Bajío): Dulce, cantadita, cálida y cariñosa
+        const bajioVoice =
+          spanishVoices.find((v) => {
+            const name = v.name.toLowerCase();
+            return (
+              name.includes('sabina') ||
+              name.includes('mónica') ||
+              name.includes('monica') ||
+              name.includes('luciana') ||
+              name.includes('helena')
+            );
+          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
 
-      if (isFemale) {
-        utterance.pitch = personality === 'burlona' ? 1.18 : personality === 'amigable' ? 1.1 : 1.05;
-        utterance.rate = 0.96; // Sultry, seductive cadence
+        if (bajioVoice) utterance.voice = bajioVoice;
+        utterance.pitch = 1.28; // Tono más agudo, dulce y meloso
+        utterance.rate = 0.94;  // Cadencia suave y consentidora
+      } else if (personality === 'neutral') {
+        // Sarah (CDMX / Chilanga Fina): Seductora, cosmopolita, relajada
+        const chilangaVoice =
+          spanishVoices.find((v) => {
+            const name = v.name.toLowerCase();
+            return (
+              name.includes('luciana') ||
+              name.includes('paloma') ||
+              name.includes('helena') ||
+              name.includes('paulina') ||
+              v.lang === 'es-ES'
+            );
+          }) || spanishVoices[0];
+
+        if (chilangaVoice) utterance.voice = chilangaVoice;
+        utterance.pitch = 1.02; // Tono elegante y aterciopelado
+        utterance.rate = 0.96;  // Cadencia tranquila y coqueta
       } else {
-        utterance.pitch = 0.85; // Deep masculine baritone
-        utterance.rate = 0.95;
+        // Marcus (El Patrón / Norteño Bravo): Voz gruesa, ronca, imponente
+        const patronVoice =
+          spanishVoices.find((v) => {
+            const name = v.name.toLowerCase();
+            return (
+              name.includes('jorge') ||
+              name.includes('diego') ||
+              name.includes('juan') ||
+              name.includes('carlos') ||
+              name.includes('male')
+            );
+          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
+
+        if (patronVoice) utterance.voice = patronVoice;
+        utterance.pitch = 0.76; // Tono bajo de barítono profundo
+        utterance.rate = 0.88;  // Cadencia pausada, firme y dominante
       }
 
       window.speechSynthesis.speak(utterance);
@@ -350,15 +389,29 @@ class SoundEngine {
   }
 
   // ==========================================
-  // 5. CASINO VIP BACKGROUND MUSIC (RAINBET / CALIENTE / VEGAS)
+  // 5. CASINO VIP MULTI-TRACK JAZZ LOUNGE SUITE
   // ==========================================
 
+  private currentJazzTrack: number = 0;
+  private readonly jazzTrackNames = [
+    'Vegas Midnight Lounge (Cool Jazz)',
+    'Rainbet Velvet Bossa (Bossa Nova)',
+    'Caliente High-Roller Swing (Uptown Jazz)',
+  ];
+
   /**
-   * Procedural VIP Casino Lounge Jazz music generator
+   * Procedural VIP Casino Lounge Jazz music generator with multiple tracks
    * 100% zero downloads, lag-free, loops indefinitely
    */
-  public startCasinoMusic() {
-    if (this.musicInterval || !this.enabled) return;
+  public startCasinoMusic(trackIndex?: number) {
+    if (trackIndex !== undefined) {
+      this.currentJazzTrack = (trackIndex + this.jazzTrackNames.length) % this.jazzTrackNames.length;
+    }
+    if (this.musicInterval) {
+      clearInterval(this.musicInterval);
+      this.musicInterval = null;
+    }
+
     this.initCtx();
     if (!this.ctx) return;
 
@@ -369,41 +422,68 @@ class SoundEngine {
     this.musicGainNode.gain.setValueAtTime(this.musicVolume, this.ctx.currentTime);
     this.musicGainNode.connect(this.ctx.destination);
 
-    // Smooth jazz progression: Dm9 -> G13 -> Cmaj9 -> A7alt
-    const chords = [
-      [293.66, 349.23, 440.0, 523.25, 659.25], // Dm9
-      [196.0, 329.63, 392.0, 493.88, 659.25],  // G13
-      [261.63, 329.63, 392.0, 493.88, 587.33], // Cmaj9
-      [220.0, 329.63, 392.0, 440.0, 554.37],   // A7
+    // Multi-track Jazz chord progressions:
+    // 0: Vegas Cool Jazz (Dm9 -> G13 -> Cmaj9 -> A7alt)
+    // 1: Velvet Bossa (Fmaj7 -> Gm7 -> Am7 -> D7b9 -> Gm7 -> C13)
+    // 2: Caliente Swing (Bb7 -> Eb7 -> Bb7 -> F7 -> Eb7 -> Bb7)
+    const trackChordProgressions = [
+      [
+        [293.66, 349.23, 440.0, 523.25, 659.25], // Dm9
+        [196.0, 329.63, 392.0, 493.88, 659.25],  // G13
+        [261.63, 329.63, 392.0, 493.88, 587.33], // Cmaj9
+        [220.0, 329.63, 392.0, 440.0, 554.37],   // A7alt
+        [293.66, 349.23, 440.0, 523.25],         // Dm7
+        [329.63, 392.0, 466.16, 587.33],         // Em7b5
+        [220.0, 349.23, 440.0, 554.37],          // A7#9
+        [293.66, 349.23, 440.0, 493.88],         // Dm6
+      ],
+      [
+        [349.23, 440.0, 523.25, 659.25],         // Fmaj7
+        [196.0, 293.66, 349.23, 440.0, 523.25],  // Gm7
+        [220.0, 329.63, 392.0, 493.88, 587.33],  // Am7
+        [293.66, 370.0, 440.0, 523.25, 622.25],  // D7b9
+        [196.0, 293.66, 349.23, 440.0, 523.25],  // Gm7
+        [261.63, 329.63, 392.0, 466.16, 587.33], // C13
+      ],
+      [
+        [233.08, 293.66, 349.23, 415.3],         // Bb7
+        [311.13, 392.0, 466.16, 554.37],         // Eb7
+        [233.08, 293.66, 349.23, 415.3],         // Bb7
+        [174.61, 261.63, 349.23, 440.0, 523.25], // F7
+        [311.13, 392.0, 466.16, 554.37],         // Eb7
+        [233.08, 293.66, 349.23, 415.3],         // Bb7
+      ],
     ];
 
+    const currentProgression = trackChordProgressions[this.currentJazzTrack];
     let chordIdx = 0;
+
     const playChordStep = () => {
       if (!this.ctx || !this.musicEnabled || !this.musicGainNode) return;
       const now = this.ctx.currentTime;
-      const currentChord = chords[chordIdx % chords.length];
+      const currentChord = currentProgression[chordIdx % currentProgression.length];
 
-      // Soft Rhodes piano / Electric vibraphone chord
+      // Soft Rhodes piano / Electric vibraphone chord with jazz voicing
       currentChord.forEach((freq, idx) => {
         const osc = this.ctx!.createOscillator();
         const filter = this.ctx!.createBiquadFilter();
         const gain = this.ctx!.createGain();
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.03);
+        osc.type = this.currentJazzTrack === 1 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.025);
 
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(950, now);
+        filter.frequency.setValueAtTime(this.currentJazzTrack === 1 ? 850 : 1100, now);
 
-        gain.gain.setValueAtTime(0.08, now + idx * 0.03);
+        gain.gain.setValueAtTime(0.075, now + idx * 0.025);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
 
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.musicGainNode!);
 
-        osc.start(now + idx * 0.03);
-        osc.stop(now + 1.9);
+        osc.start(now + idx * 0.025);
+        osc.stop(now + 1.85);
       });
 
       // Upright walking bass note
@@ -413,8 +493,8 @@ class SoundEngine {
 
       bassOsc.type = 'sine';
       bassOsc.frequency.setValueAtTime(rootBass, now);
-      bassGain.gain.setValueAtTime(0.18, now);
-      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      bassGain.gain.setValueAtTime(0.2, now);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.92);
 
       bassOsc.connect(bassGain);
       bassGain.connect(this.musicGainNode!);
@@ -422,7 +502,8 @@ class SoundEngine {
       bassOsc.stop(now + 0.95);
 
       // Brushed jazz hi-hat rhythm
-      [0, 0.45, 0.9, 1.35].forEach((offset) => {
+      const swingRhythm = this.currentJazzTrack === 1 ? [0, 0.4, 0.8, 1.2] : [0, 0.45, 0.9, 1.35];
+      swingRhythm.forEach((offset) => {
         const t = now + offset;
         const bufferSize = this.ctx!.sampleRate * 0.03;
         const buffer = this.ctx!.createBuffer(1, bufferSize, this.ctx!.sampleRate);
@@ -435,10 +516,10 @@ class SoundEngine {
         hatNoise.buffer = buffer;
         const hatFilter = this.ctx!.createBiquadFilter();
         hatFilter.type = 'highpass';
-        hatFilter.frequency.setValueAtTime(8000, t);
+        hatFilter.frequency.setValueAtTime(7500, t);
 
         const hatGain = this.ctx!.createGain();
-        hatGain.gain.setValueAtTime(0.04, t);
+        hatGain.gain.setValueAtTime(0.038, t);
         hatGain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
 
         hatNoise.connect(hatFilter);
@@ -452,7 +533,8 @@ class SoundEngine {
     };
 
     playChordStep();
-    this.musicInterval = setInterval(playChordStep, 1900);
+    const intervalTime = this.currentJazzTrack === 2 ? 1600 : this.currentJazzTrack === 1 ? 1750 : 1900;
+    this.musicInterval = setInterval(playChordStep, intervalTime);
   }
 
   public stopCasinoMusic() {
@@ -466,6 +548,18 @@ class SoundEngine {
       this.musicGainNode.disconnect();
       this.musicGainNode = null;
     }
+  }
+
+  public nextCasinoTrack(): string {
+    this.currentJazzTrack = (this.currentJazzTrack + 1) % this.jazzTrackNames.length;
+    if (this.musicEnabled) {
+      this.startCasinoMusic(this.currentJazzTrack);
+    }
+    return this.jazzTrackNames[this.currentJazzTrack];
+  }
+
+  public getCasinoTrackName(): string {
+    return this.jazzTrackNames[this.currentJazzTrack];
   }
 
   public toggleCasinoMusic(): boolean {

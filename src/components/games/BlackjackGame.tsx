@@ -12,12 +12,19 @@ import {
   Award,
   Sparkles,
   Wifi,
+  Music,
+  Glasses,
 } from 'lucide-react';
-import type { UserProfile, StandardCard } from '../../types/casino';
-import { CrupierView } from '../crupier/CrupierView';
-import type { CrupierContext } from '../../utils/crupierAI';
+import type { UserProfile, StandardCard, CrupierMood } from '../../types/casino';
+import { CrupierAvatar } from '../crupier/CrupierAvatar';
+import { DealerSelectModal } from '../modals/DealerSelectModal';
+import { TouchChipTray } from '../common/TouchChipTray';
+import {
+  PERSONALITY_CONFIGS,
+  getCrupierDialogue,
+  type CrupierContext,
+} from '../../utils/crupierAI';
 import { StandardCardView } from '../common/CardView';
-import { ChipView } from '../common/ChipView';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 import { formatMoney } from '../../utils/storage';
@@ -68,11 +75,19 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
   const [bannerType, setBannerType] = useState<'win' | 'lose' | 'push' | 'blackjack' | null>(null);
 
   // Crupier dialogue event & context
-  const [crupierEvent, setCrupierEvent] = useState<string>('game_start');
+  const [_crupierEvent, setCrupierEvent] = useState<string>('game_start');
   const [crupierContext, setCrupierContext] = useState<CrupierContext>({
     betAmount: 0,
     bankroll: userProfile.bankroll,
   });
+
+  // Table Crupier Live State
+  const [dealerSpeech, setDealerSpeech] = useState<string>('');
+  const [isDealerSpeaking, setIsDealerSpeaking] = useState<boolean>(false);
+  const [showDealerModal, setShowDealerModal] = useState<boolean>(false);
+  const [showSunglasses, setShowSunglasses] = useState<boolean>(false);
+  const [isMusicActive, setIsMusicActive] = useState<boolean>(() => sound.isMusicPlaying());
+  const dealerSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Rules modal
   const [showRules, setShowRules] = useState<boolean>(false);
@@ -120,8 +135,54 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
 
   const triggerCrupierEvent = (eventName: string, context?: CrupierContext) => {
     setCrupierEvent(eventName);
+    const effectiveContext = context || crupierContext;
     if (context) setCrupierContext(context);
+
+    const dialogue = getCrupierDialogue('blackjack', eventName, effectiveContext, userProfile.crupierPersonality);
+    setDealerSpeech(dialogue.text);
+    setIsDealerSpeaking(true);
+
+    if (dealerSpeechTimeoutRef.current) clearTimeout(dealerSpeechTimeoutRef.current);
+    dealerSpeechTimeoutRef.current = setTimeout(() => {
+      setIsDealerSpeaking(false);
+    }, 4500);
+
+    if (userProfile.soundEnabled) {
+      sound.speakDealer(dialogue.text, userProfile.crupierPersonality);
+
+      const isLossEvent =
+        dialogue.mood === 'laughing' ||
+        (userProfile.crupierPersonality === 'burlona' && dialogue.mood === 'smirk') ||
+        eventName.includes('loss') ||
+        eventName.includes('bust') ||
+        eventName === 'bj_dealer_blackjack';
+
+      const isWinEvent =
+        eventName === 'player_win' ||
+        eventName === 'bj_player_blackjack';
+
+      if (isLossEvent) {
+        const isFemale = PERSONALITY_CONFIGS[userProfile.crupierPersonality]?.gender !== 'male';
+        setTimeout(() => {
+          sound.playDealerLaugh(isFemale);
+        }, 350);
+      } else if (isWinEvent) {
+        sound.playCashRegister();
+      }
+    }
   };
+
+  // Welcome line on mount / dealer change
+  useEffect(() => {
+    const welcome = getCrupierDialogue('blackjack', 'game_start', crupierContext, userProfile.crupierPersonality);
+    setDealerSpeech(welcome.text);
+    setIsDealerSpeaking(true);
+    if (userProfile.soundEnabled) {
+      sound.speakDealer(welcome.text, userProfile.crupierPersonality);
+    }
+    const t = setTimeout(() => setIsDealerSpeaking(false), 3500);
+    return () => clearTimeout(t);
+  }, [userProfile.crupierPersonality]);
 
   // Draw card from shoe with auto-reshuffle
   const drawCard = (faceUp = true): StandardCard => {
@@ -1429,6 +1490,16 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
   const s1Val = calculateHandValue(seat1Cards);
   const s2Val = calculateHandValue(seat2Cards);
 
+  const activeDealerConfig = PERSONALITY_CONFIGS[userProfile.crupierPersonality] || PERSONALITY_CONFIGS.burlona;
+  const dealerMood: CrupierMood =
+    bannerType === 'lose'
+      ? (userProfile.crupierPersonality === 'burlona' ? 'laughing' : 'smirk')
+      : bannerType === 'win' || bannerType === 'blackjack'
+      ? 'impressed'
+      : phase === 'player_turn'
+      ? 'challenging'
+      : 'neutral';
+
   return (
     <div
       className={`relative w-full h-full flex flex-col justify-between overflow-hidden table-felt-${userProfile.tableTheme} safe-top safe-bottom text-white select-none`}
@@ -1477,6 +1548,24 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
             <PlusCircle className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
           </div>
 
+          {/* Casino Jazz Lounge Music toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              const next = sound.toggleCasinoMusic();
+              setIsMusicActive(next);
+            }}
+            className={`p-1.5 rounded-full border transition-all active:scale-95 ${
+              isMusicActive
+                ? 'bg-amber-500/30 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                : 'bg-white/10 hover:bg-white/20 text-neutral-300 border-transparent'
+            }`}
+            title={isMusicActive ? 'Pausar música Jazz Casino Lounge' : 'Activar música Jazz Casino'}
+          >
+            <Music className={`w-4 h-4 ${isMusicActive ? 'animate-pulse' : ''}`} />
+          </button>
+
           <button
             onClick={() => {
               const next = !userProfile.soundEnabled;
@@ -1484,6 +1573,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
               onUpdateProfile({ soundEnabled: next });
             }}
             className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 active:scale-95"
+            title={userProfile.soundEnabled ? 'Silenciar efectos' : 'Activar efectos'}
           >
             {userProfile.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
@@ -1491,29 +1581,120 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
           <button
             onClick={() => setShowRules(true)}
             className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 active:scale-95"
+            title="Reglas del juego"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* Crupier Animated Interactive Header Bar */}
-      <CrupierView
-        game="blackjack"
-        event={crupierEvent}
-        context={crupierContext}
-        personality={userProfile.crupierPersonality}
-        onPersonalityChange={(newP) => onUpdateProfile({ crupierPersonality: newP })}
-        compact={true}
-      />
-
       {/* Main Playing Felt Arena */}
       <div className="flex-1 flex flex-col justify-around px-2 sm:px-4 py-1 relative overflow-y-auto">
-        {/* Dealer Section */}
-        <div className="flex flex-col items-center">
+        {/* Dealer Section Directly on the Table Felt */}
+        <div className="flex flex-col items-center my-1 relative z-10">
+          {/* Croupier on Table Banner */}
+          <div className="flex items-center gap-2.5 sm:gap-3 px-3 py-1.5 rounded-2xl bg-neutral-950/80 backdrop-blur-md border border-amber-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-2">
+            <div
+              className="relative cursor-pointer group shrink-0"
+              onClick={() => {
+                triggerHaptic('light');
+                setShowDealerModal(true);
+              }}
+              title="Toca para cambiar de crupier"
+            >
+              <CrupierAvatar
+                size={58}
+                mood={dealerMood}
+                isSpeaking={isDealerSpeaking}
+                personality={userProfile.crupierPersonality}
+                showSunglasses={showSunglasses}
+                className="hover:scale-105 transition-transform"
+              />
+              <span className="absolute -bottom-1 -right-1 bg-amber-500 text-neutral-950 text-[8px] font-black px-1.5 py-0.2 rounded-full border border-black shadow">
+                CAMBIAR
+              </span>
+            </div>
+
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs sm:text-sm font-black text-amber-200 tracking-tight">
+                  {activeDealerConfig.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setShowDealerModal(true);
+                  }}
+                  className="text-[9px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40 hover:bg-amber-500/40 active:scale-95 transition-all"
+                >
+                  {activeDealerConfig.badge}
+                </button>
+              </div>
+              <span className="text-[10px] text-neutral-400 font-medium truncate">
+                {activeDealerConfig.region} • Crupier en Vivo
+              </span>
+            </div>
+
+            {/* Crupier Voice / Accent Preview */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                if (dealerSpeech) {
+                  sound.speakDealer(dealerSpeech, userProfile.crupierPersonality);
+                } else {
+                  const idle = getCrupierDialogue('blackjack', 'idle', crupierContext, userProfile.crupierPersonality);
+                  setDealerSpeech(idle.text);
+                  setIsDealerSpeaking(true);
+                  sound.speakDealer(idle.text, userProfile.crupierPersonality);
+                  setTimeout(() => setIsDealerSpeaking(false), 3000);
+                }
+              }}
+              className="p-1.5 rounded-xl bg-white/10 hover:bg-amber-500/20 text-neutral-300 hover:text-amber-300 border border-white/10 active:scale-90 transition-all shrink-0"
+              title="Escuchar voz de la crupier"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+            </button>
+
+            {/* Crupier Sunglasses Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setShowSunglasses((prev) => !prev);
+              }}
+              className={`p-1.5 rounded-xl border transition-all active:scale-90 shrink-0 ${
+                showSunglasses
+                  ? 'bg-amber-500/25 border-amber-400 text-amber-300'
+                  : 'bg-white/10 hover:bg-white/20 text-neutral-400 border-white/10'
+              }`}
+              title={showSunglasses ? 'Quitar gafas de sol al crupier' : 'Poner gafas de sol al crupier'}
+            >
+              <Glasses className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Speech Bubble on the Felt */}
+          {dealerSpeech && (
+            <div
+              onClick={() => {
+                triggerHaptic('light');
+                sound.speakDealer(dealerSpeech, userProfile.crupierPersonality);
+              }}
+              className="relative max-w-xs sm:max-w-md px-3.5 py-1.5 rounded-xl bg-neutral-900/90 backdrop-blur-md border border-amber-500/35 shadow-lg text-center mb-2.5 cursor-pointer active:scale-98 transition-all animate-in fade-in"
+              title="Toca para repetir la voz"
+            >
+              <p className="text-[11px] sm:text-xs text-amber-200 font-medium leading-snug">
+                &ldquo;{dealerSpeech}&rdquo;
+              </p>
+            </div>
+          )}
+
+          {/* Dealer Cards Header & Cards */}
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-[11px] uppercase font-bold tracking-wider text-neutral-300 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
-              Crupier
+              Banca
             </span>
             {dealerCards.length > 0 && (
               <span className="text-xs font-black px-2 py-0.5 rounded-full bg-neutral-800/90 border border-amber-400 text-amber-300 font-mono shadow">
@@ -1588,6 +1769,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                   }
                 }
               }}
+              data-drop-zone={isHost && phase === 'betting' ? 'bet' : undefined}
               className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
                 activeSeatTurn === 'seat1'
                   ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400 shadow-lg shadow-amber-400/25 scale-[1.02]'
@@ -1664,6 +1846,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                   }
                 }
               }}
+              data-drop-zone={!isHost && phase === 'betting' ? 'bet' : undefined}
               className={`flex flex-col items-center p-2 rounded-2xl transition-all border ${
                 activeSeatTurn === 'seat2'
                   ? 'bg-emerald-500/20 border-emerald-400 ring-2 ring-emerald-400 shadow-lg shadow-emerald-400/25 scale-[1.02]'
@@ -1804,6 +1987,7 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                     }
                   }}
                   onClick={() => handleAddChip(25)}
+                  data-drop-zone={phase === 'betting' ? 'bet' : undefined}
                   className="w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 border-dashed border-amber-400/50 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center p-3 text-center my-2 shadow-[0_0_25px_rgba(245,158,11,0.25)] hover:border-amber-300 hover:scale-105 transition-all group cursor-pointer"
                   title="Arrastra fichas aquí para apostar o toca"
                 >
@@ -1866,13 +2050,8 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-around py-1">
-              {[10, 25, 50, 100, 500].map((val) => (
-                <div key={val} className="flex flex-col items-center">
-                  <ChipView value={val} onClick={() => handleAddChip(val)} size="md" />
-                </div>
-              ))}
-            </div>
+            {/* High-Performance Visual Drag & Drop Chip Tray */}
+            <TouchChipTray onAddChip={handleAddChip} />
 
             {/* Deal or Wait Button */}
             {isP2P ? (
@@ -2024,6 +2203,21 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
           </div>
         </div>
       )}
+
+      {/* Regional Dealer Selection Modal */}
+      <DealerSelectModal
+        isOpen={showDealerModal}
+        onClose={() => setShowDealerModal(false)}
+        selectedPersonality={userProfile.crupierPersonality}
+        onSelectPersonality={(newP) => {
+          onUpdateProfile({ crupierPersonality: newP });
+          const intro = getCrupierDialogue('blackjack', 'game_start', crupierContext, newP);
+          setDealerSpeech(intro.text);
+          setIsDealerSpeaking(true);
+          sound.speakDealer(intro.text, newP);
+          setTimeout(() => setIsDealerSpeaking(false), 3500);
+        }}
+      />
     </div>
   );
 };

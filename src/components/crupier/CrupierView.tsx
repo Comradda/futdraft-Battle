@@ -3,13 +3,13 @@ import type { CrupierMood, PersonalityType, GameType } from '../../types/casino'
 import type { CrupierContext, CrupierDialogueResult } from '../../utils/crupierAI';
 import { 
   getCrupierDialogue, 
-  PERSONALITY_CONFIGS, 
-  PERSONALITY_LIST 
+  PERSONALITY_CONFIGS 
 } from '../../utils/crupierAI';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 import { CrupierAvatar } from './CrupierAvatar';
-import { Volume2, VolumeX, ChevronDown, Check, Sparkles, Glasses, Music } from 'lucide-react';
+import { DealerSelectModal } from '../modals/DealerSelectModal';
+import { Volume2, VolumeX, ChevronDown, Sparkles, Glasses, Music } from 'lucide-react';
 
 export interface CrupierViewProps {
   game?: GameType;
@@ -359,73 +359,13 @@ export const CrupierView: React.FC<CrupierViewProps> = ({
                   />
                 </button>
 
-                {/* Dropdown Menu Modal */}
-                {showSelectorMenu && (
-                  <>
-                    {/* Backdrop */}
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setShowSelectorMenu(false)}
-                    />
-
-                    {/* Popover Card */}
-                    <div
-                      role="listbox"
-                      className="absolute right-0 top-full mt-2 w-72 p-2 rounded-2xl 
-                        bg-neutral-900/95 backdrop-blur-2xl border border-amber-500/40 
-                        shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
-                    >
-                      <div className="px-2.5 py-1.5 border-b border-white/10 mb-1 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                          Seleccionar Crupier VIP
-                        </span>
-                        <span className="text-[10px] text-neutral-400">En Vivo</span>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {PERSONALITY_LIST.map((p) => {
-                          const isSelected = p.id === personality;
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleSelectPersonality(p.id)}
-                              className={`w-full flex items-center gap-3 p-2 rounded-xl text-left transition-all ${
-                                isSelected
-                                  ? 'bg-amber-500/20 border border-amber-400/50 text-white shadow-md'
-                                  : 'hover:bg-white/5 border border-transparent text-neutral-300'
-                              }`}
-                            >
-                              <div className="relative w-11 h-11 rounded-full overflow-hidden border border-amber-400/40 shrink-0">
-                                <img
-                                  src={p.image}
-                                  alt={p.name}
-                                  className="w-full h-full object-cover object-top"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-black leading-tight text-neutral-100">
-                                    {p.name}
-                                  </span>
-                                  {isSelected && (
-                                    <Check className="w-3.5 h-3.5 text-amber-400" />
-                                  )}
-                                </div>
-                                <span className="text-[10px] text-amber-300/90 font-medium block">
-                                  {p.title}
-                                </span>
-                                <p className="text-[9px] text-neutral-400 leading-tight mt-0.5 line-clamp-1">
-                                  {p.description}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
+                {/* Dealer Select Modal for smooth mobile experience */}
+                <DealerSelectModal
+                  isOpen={showSelectorMenu}
+                  onClose={() => setShowSelectorMenu(false)}
+                  selectedPersonality={personality}
+                  onSelectPersonality={handleSelectPersonality}
+                />
               </div>
             )}
           </div>
