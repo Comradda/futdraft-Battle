@@ -14,12 +14,14 @@ import {
   Layers,
   Zap,
   X,
+  Wifi,
 } from 'lucide-react';
 import type { SpanishCard, UserProfile, TableTheme } from '../../types/casino';
-import { CardBack, SpanishCardView } from '../common/CardView';
+import { CardBack, SpanishCardView, OroIcon } from '../common/CardView';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 import { formatMoney } from '../../utils/storage';
+import { multiplayer } from '../../utils/multiplayer';
 import {
   dealConquianHands,
   isValidMeld,
@@ -87,6 +89,10 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
   const [crupierSpeech, setCrupierSpeech] = useState<string>('');
   const [crupierMood, setCrupierMood] = useState<'neutral' | 'talking' | 'taunting' | 'shocked'>('neutral');
 
+  // Multiplayer P2P live state
+  const [isP2P, setIsP2P] = useState<boolean>(multiplayer.getStatus() === 'connected');
+  const remotePlayer = multiplayer.getRemotePlayer();
+
   // Audio preference local state (mirrored from profile)
   const [soundOn, setSoundOn] = useState<boolean>(profile.soundEnabled);
 
@@ -94,19 +100,72 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
   const [, startTransition] = useTransition();
 
   // Reference to prevent double AI turn executions
-  const aiTurnTimeoutRef = useRef<number | null>(null);
+  const aiTurnTimeoutRef = useRef<any>(null);
 
   // Sync sound engine
   useEffect(() => {
     sound.setEnabled(soundOn);
   }, [soundOn]);
 
-  // Clean timeouts on unmount
+  // Clean timeouts on unmount and setup P2P listeners
   useEffect(() => {
+    const unsubStatus = multiplayer.onStatusChange((s) => {
+      setIsP2P(s === 'connected');
+    });
+
+    const unsubMsg = multiplayer.onMessage((msg) => {
+      if (msg.type === 'GAME_ACTION' && msg.payload) {
+        const { action } = msg.payload;
+        if (action === 'DEAL') {
+          const { guestHand, hostHand, remateDeck: remate, currentPot: pot, betAmount: bet } = msg.payload;
+          if (!multiplayer.getIsHost()) {
+            setPlayerHand(guestHand);
+            setCrupierHand(hostHand);
+            setRemateDeck(remate);
+            setDiscardPile([]);
+            setDrawnCard(null);
+            setPlayerMelds([]);
+            setCrupierMelds([]);
+            setSelectedCardIds([]);
+            setFeedbackMsg('');
+            setRoundResult(null);
+            setCurrentPot(pot);
+            setBetAmount(bet);
+            setPhase('playing');
+            setTurn('crupier');
+            setTurnStep('choose_draw');
+            sound.playCardDeal();
+          }
+        } else if (action === 'DRAW_REMATO') {
+          const { drawn, nextRemate } = msg.payload;
+          setDrawnCard(drawn);
+          setRemateDeck(nextRemate);
+          setCardSource('remate');
+          sound.playCardDeal();
+        } else if (action === 'DISCARD') {
+          const { card, nextHand, nextMelds } = msg.payload;
+          setDiscardPile(prev => [card, ...prev]);
+          setDrawnCard(null);
+          if (nextHand) setCrupierHand(nextHand);
+          if (nextMelds) setCrupierMelds(nextMelds);
+          setTurn('player');
+          setTurnStep('choose_draw');
+          sound.playCardFlip();
+        } else if (action === 'MELD_UPDATE') {
+          const { melds, hand } = msg.payload;
+          setCrupierMelds(melds);
+          setCrupierHand(hand);
+          sound.playChip();
+        }
+      }
+    });
+
     return () => {
       if (aiTurnTimeoutRef.current) {
         clearTimeout(aiTurnTimeoutRef.current);
       }
+      unsubStatus();
+      unsubMsg();
     };
   }, []);
 
@@ -272,7 +331,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
   // CRUPIER / AI AUTOMATED TURN ENGINE
   // ========================================================
   useEffect(() => {
-    if (phase !== 'playing' || turn !== 'crupier') return;
+    if (phase !== 'playing' || turn !== 'crupier' || isP2P) return;
 
     setIsAiThinking(true);
 
@@ -683,10 +742,26 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     sound.playCardDeal();
     triggerHaptic('light');
 
-    setPlayerHand((prev) => prev.filter((c) => c.id !== discardCard.id));
+    const nextHand = playerHand.filter((c) => c.id !== discardCard.id);
+    setPlayerHand(nextHand);
     setDiscardPile((prev) => [...prev, discardCard]);
     setSelectedCardIds([]);
-    setFeedbackMsg(`Descartaste ${discardCard.name}. Turno del Crupier.`);
+    setFeedbackMsg(`Descartaste ${discardCard.name}. Turno del oponente.`);
+
+    if (isP2P) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: {
+          action: 'DISCARD',
+          card: discardCard,
+          nextHand,
+          nextMelds: playerMelds,
+        },
+        timestamp: Date.now(),
+      });
+    }
 
     // Check if remate ran out
     if (remateDeck.length === 0) {
@@ -694,7 +769,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
       return;
     }
 
-    // Turn passes to Crupier
+    // Turn passes to Crupier / Opponent
     setTurn('crupier');
     setTurnStep('choose_draw');
   };
@@ -751,10 +826,15 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
         {/* Game Title & Pot */}
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">🎴</span>
+            <OroIcon className="w-4 h-4 inline-block" />
             <span className="text-xs font-black uppercase tracking-wider text-amber-300">
               Conquián Clásico
             </span>
+            {isP2P && (
+              <span className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold">
+                <Wifi className="w-2.5 h-2.5 animate-pulse" /> P2P
+              </span>
+            )}
           </div>
           {phase === 'playing' && (
             <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
@@ -791,15 +871,25 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
       </header>
 
       {/* ========================================================
-          CRUPIER SECTION (Dealer Avatar, Speech, Bajas Crupier)
+          CRUPIER / OPPONENT SECTION
           ======================================================== */}
       <section className="px-3 pt-2 pb-1.5 flex flex-col gap-1.5 border-b border-white/5 bg-black/20">
         <div className="flex items-center justify-between">
           {/* Dealer Info & Speech Bubble */}
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-700 to-amber-500 border-2 border-amber-300 shadow-md flex items-center justify-center text-xl">
-                {crupierMood === 'shocked' ? '😲' : crupierMood === 'taunting' ? '😏' : crupierMood === 'talking' ? '🗣️' : '🎩'}
+              <div
+                className={`w-10 h-10 rounded-full bg-gradient-to-tr from-amber-700 to-amber-500 border-2 shadow-md flex items-center justify-center font-black text-xs ${
+                  crupierMood === 'shocked'
+                    ? 'border-rose-400 text-rose-300 ring-2 ring-rose-400/40'
+                    : crupierMood === 'taunting'
+                    ? 'border-purple-400 text-purple-300 ring-2 ring-purple-400/40'
+                    : crupierMood === 'talking'
+                    ? 'border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40'
+                    : 'border-amber-300 text-amber-200'
+                }`}
+              >
+                {isP2P ? (remotePlayer?.name?.substring(0, 2).toUpperCase() || 'P2') : 'VIP'}
               </div>
               {isAiThinking && (
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 animate-ping" />
@@ -808,7 +898,9 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-amber-300 truncate">Don Aurelio</span>
+                <span className="text-xs font-bold text-amber-300 truncate">
+                  {isP2P ? (remotePlayer?.name || 'Tu Hermano') : 'Don Aurelio'}
+                </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
                   {crupierHand.length} cartas en mano
                 </span>
@@ -860,19 +952,14 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
           CENTER PLAYING TABLE: REMATE, DRAWN CARD, DISCARD PILE
           ======================================================== */}
       <section className="flex-1 flex flex-col justify-center items-center px-4 py-2 relative">
-        {/* Felt Watermark Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
-          <span className="text-9xl font-serif">🎴</span>
-        </div>
-
         {phase === 'betting' ? (
           // ==========================================
           // BETTING CONTROLS VIEW
           // ==========================================
           <div className="w-full max-w-sm flex flex-col items-center gap-4 bg-black/60 p-6 rounded-3xl border border-amber-500/30 backdrop-blur-lg shadow-2xl animate-fadeIn">
             <div className="text-center">
-              <span className="text-3xl">🇲🇽</span>
-              <h2 className="text-lg font-black text-amber-300 mt-1">Conquián Tradicional</h2>
+              <OroIcon className="w-12 h-12 mx-auto mb-2 filter drop-shadow" />
+              <h2 className="text-lg font-black text-amber-300">Conquián Tradicional</h2>
               <p className="text-xs text-neutral-300 mt-0.5">
                 Baraja Española de 40 cartas. Gana el primero en bajar 9.
               </p>

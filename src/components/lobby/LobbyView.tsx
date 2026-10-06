@@ -3,7 +3,21 @@ import type { GameType, UserProfile } from '../../types/casino';
 import { formatMoney } from '../../utils/storage';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
-import { Trophy, Settings, Plus, Sparkles, Play, Flame, Award } from 'lucide-react';
+import {
+  Trophy,
+  Settings,
+  Plus,
+  Sparkles,
+  Play,
+  Flame,
+  Award,
+  Users,
+  Wifi,
+  Coins,
+  Layers,
+  CircleDot,
+} from 'lucide-react';
+import { SpadeIcon, OroIcon } from '../common/CardView';
 
 interface LobbyViewProps {
   profile: UserProfile;
@@ -12,6 +26,8 @@ interface LobbyViewProps {
   onOpenLeaderboard: () => void;
   onOpenProfile: () => void;
   onOpenAds: () => void;
+  onOpenMultiplayer: () => void;
+  isMultiplayerConnected?: boolean;
 }
 
 export const LobbyView: React.FC<LobbyViewProps> = ({
@@ -21,6 +37,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onOpenLeaderboard,
   onOpenProfile,
   onOpenAds,
+  onOpenMultiplayer,
+  isMultiplayerConnected = false,
 }) => {
   const games: {
     id: GameType;
@@ -31,55 +49,55 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     badgeColor: string;
     gradient: string;
     border: string;
-    icon: string;
+    renderIcon: () => React.ReactNode;
     minBet: number;
   }[] = [
     {
       id: 'conquian',
       title: 'Conquián Clásico',
       subtitle: 'Baraja Española Tradicional',
-      description: 'El auténtico juego mexicano de 40 cartas. Forma tercias y corridas hasta bajar 9 cartas.',
-      badge: '🇲🇽 Más Popular',
+      description: 'El legendario juego de 40 cartas. Forma tercias y corridas hasta bajar 9 cartas y vencer al rival.',
+      badge: 'Mano a Mano',
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      gradient: 'from-emerald-950 via-teal-950 to-neutral-900',
+      gradient: 'from-[#0b291e] via-[#061e16] to-[#0a0a0f]',
       border: 'border-emerald-600/40 hover:border-emerald-400',
-      icon: '🎴',
+      renderIcon: () => <OroIcon className="w-8 h-8 filter drop-shadow" />,
       minBet: 25,
     },
     {
       id: 'blackjack',
       title: 'Blackjack 21 VIP',
       subtitle: 'Mesa Estilo Las Vegas',
-      description: 'Supera la mano del Crupier sin pasarte de 21. El Crupier pide en 16 y se planta en 17.',
-      badge: '⚡ Pago 3:2',
+      description: 'Supera al crupier sin exceder 21. Zapato de 6 barajas, opciones para doblar, dividir y cobro 3:2.',
+      badge: 'Pago 3:2',
       badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-      gradient: 'from-blue-950 via-indigo-950 to-neutral-900',
+      gradient: 'from-[#0e1d38] via-[#091326] to-[#0a0a0f]',
       border: 'border-blue-600/40 hover:border-blue-400',
-      icon: '♠️',
+      renderIcon: () => <SpadeIcon className="w-8 h-8 text-blue-400 filter drop-shadow" />,
       minBet: 10,
     },
     {
       id: 'roulette',
       title: 'Ruleta Europea',
       subtitle: 'Rueda 37 Números (0-36)',
-      description: 'Gira la bola con física 3D en tiempo real. Apuesta a pleno, cuadro, docenas, rojo o negro.',
-      badge: '🎡 Clásico VIP',
+      description: 'Giro balístico en Canvas 3D a 60 FPS. Apuestas directas a pleno (35:1), docenas, columnas, rojo y negro.',
+      badge: 'Física 3D Real',
       badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      gradient: 'from-amber-950 via-yellow-950 to-neutral-900',
+      gradient: 'from-[#2e1d08] via-[#1c1205] to-[#0a0a0f]',
       border: 'border-amber-600/40 hover:border-amber-400',
-      icon: '🎰',
+      renderIcon: () => <CircleDot className="w-8 h-8 text-amber-400 animate-spin filter drop-shadow" />,
       minBet: 10,
     },
     {
       id: 'poker',
       title: 'Texas Hold\'em Poker',
-      subtitle: 'Mano a Mano Heads-Up',
-      description: 'Duelo cara a cara contra el Crupier. Ronda de Flop, Turn y River con cálculo de faroles.',
-      badge: '🔥 Alta Tensión',
+      subtitle: 'Duelo Mano a Mano',
+      description: 'Enfrentamiento de alta estrategia contra la banca. Flop, Turn y River con cálculo de pot odds y faroles.',
+      badge: 'Estrategia Pura',
       badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-      gradient: 'from-rose-950 via-red-950 to-neutral-900',
+      gradient: 'from-[#2e0912] via-[#1c050a] to-[#0a0a0f]',
       border: 'border-rose-600/40 hover:border-rose-400',
-      icon: '🃏',
+      renderIcon: () => <Layers className="w-8 h-8 text-rose-400 filter drop-shadow" />,
       minBet: 50,
     },
   ];
@@ -91,9 +109,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-neutral-950 overflow-y-auto pb-24 safe-top">
+    <div className="w-full h-full flex flex-col bg-[#07070a] overflow-y-auto pb-24 safe-top select-none">
       {/* Top iOS App Bar */}
-      <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-md">
+      <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between sticky top-0 z-30 bg-[#07070a]/90 backdrop-blur-md">
         {/* User Profile Pill */}
         <button
           onClick={() => {
@@ -103,20 +121,41 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           }}
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer"
         >
-          <span className="text-xl leading-none">{profile.avatar}</span>
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-neutral-950 font-black text-xs shadow-inner">
+            {profile.name.charAt(0).toUpperCase()}
+          </div>
           <div className="text-left">
             <div className="text-[11px] font-bold text-white leading-tight max-w-[85px] truncate">
               {profile.name}
             </div>
             <div className="text-[9px] text-amber-400 font-semibold leading-tight">
-              Torneo #{profile.weeklyScore > 20000 ? 'Top 3' : 'En Juego'}
+              Socio VIP
             </div>
           </div>
         </button>
 
-        {/* Chips Balance Pill */}
+        {/* Chips Balance & Multiplayer Link */}
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+          {/* 2-Player Button */}
+          <button
+            onClick={() => {
+              sound.playChip();
+              triggerHaptic('medium');
+              onOpenMultiplayer();
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-black transition-all cursor-pointer shadow-md ${
+              isMultiplayerConnected
+                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 animate-pulse'
+                : 'bg-gradient-to-r from-amber-600/30 to-amber-500/10 border-amber-500/40 text-amber-300 hover:border-amber-400'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">{isMultiplayerConnected ? 'Mesa 2P Activa' : '2 Jugadores'}</span>
+          </button>
+
+          {/* Chips Balance Pill */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-neutral-900 border border-amber-500/30">
+            <Coins className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-amber-400 font-black text-xs font-mono">
               {formatMoney(profile.bankroll)}
             </span>
@@ -126,10 +165,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 triggerHaptic('medium');
                 onOpenAds();
               }}
-              title="Obtener más fichas gratis"
-              className="w-5 h-5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center font-black hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow"
+              title="Obtener fichas de cortesía"
+              className="w-4.5 h-4.5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center font-black hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <Plus className="w-3 h-3 stroke-[3]" />
             </button>
           </div>
 
@@ -157,39 +196,46 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
       </header>
 
-      {/* Hero Banner / Greeting */}
-      <section className="px-4 pt-4 pb-2">
-        <div className="relative rounded-3xl p-5 bg-gradient-to-r from-amber-900/40 via-purple-900/30 to-neutral-900 border border-amber-500/30 shadow-xl overflow-hidden">
+      {/* Hero Banner with Multiplayer Callout */}
+      <section className="px-4 pt-3.5 pb-2">
+        <div className="relative rounded-3xl p-5 bg-gradient-to-r from-[#1f1505] via-[#150e26] to-[#0c0c12] border border-amber-500/30 shadow-xl overflow-hidden">
           <div className="absolute top-0 right-0 w-44 h-44 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="relative z-10 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
-                <Sparkles className="w-4 h-4 text-amber-400 animate-spin" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
                   Gran Casino Imperial
                 </span>
               </div>
               <h2 className="text-xl font-black text-white tracking-tight">
-                Mesa del Crupier VIP
+                Salón Principal
               </h2>
-              <p className="text-xs text-neutral-300 mt-1 max-w-[220px]">
-                {profile.crupierPersonality === 'burlona' && '«¿Listo para perder o vas a demostrar que tienes agallas hoy?»'}
-                {profile.crupierPersonality === 'desafiante' && '«Solo los grandes apostadores triunfan en mi mesa. Pruébalo.»'}
-                {profile.crupierPersonality === 'amigable' && '«¡Qué gusto verte de nuevo! Hoy la suerte está de tu lado.»'}
+              <p className="text-xs text-neutral-300 mt-1 max-w-[240px] leading-relaxed">
+                {profile.crupierPersonality === 'burlona' && '«¿Listo para jugar o vas a quedarte mirando las fichas?»'}
+                {profile.crupierPersonality === 'desafiante' && '«Los grandes apostadores triunfan en mi mesa. Demuéstralo.»'}
+                {profile.crupierPersonality === 'amigable' && '«¡Bienvenido de nuevo! La mesa está servida y la suerte a tu favor.»'}
                 {profile.crupierPersonality === 'neutral' && '«Hagan sus apuestas, señores. Mesa lista y barajas preparadas.»'}
               </p>
             </div>
 
-            <div className="text-4xl animate-bounce">
-              {profile.crupierPersonality === 'burlona' && '😏'}
-              {profile.crupierPersonality === 'desafiante' && '😈'}
-              {profile.crupierPersonality === 'amigable' && '🤝'}
-              {profile.crupierPersonality === 'neutral' && '🎩'}
-            </div>
+            {/* Quick 2-player badge action */}
+            <button
+              onClick={() => {
+                sound.playChip();
+                triggerHaptic('medium');
+                onOpenMultiplayer();
+              }}
+              className="flex flex-col items-center gap-1 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-400/40 text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all shadow-lg"
+            >
+              <Wifi className="w-5 h-5 text-amber-400 animate-pulse" />
+              <span className="text-[10px] font-black tracking-tight">Mesa 2P</span>
+              <span className="text-[8px] px-1 rounded bg-amber-400/20 text-amber-300 font-bold">En Vivo</span>
+            </button>
           </div>
 
-          {/* Quick tournament banner */}
+          {/* Tournament strip */}
           <div
             onClick={() => {
               sound.playChip();
@@ -200,8 +246,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           >
             <div className="flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-semibold">Mini-Torneo Semanal:</span>
-              <span className="text-amber-400 font-bold">$100,000 en Premios</span>
+              <span className="font-semibold text-white">Torneo Semanal:</span>
+              <span className="text-amber-400 font-bold">$100,000 MXN en Premios</span>
             </div>
             <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-full">
               Ver Ranking &rarr;
@@ -213,7 +259,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       {/* Games Grid */}
       <section className="px-4 py-2 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
-          Selecciona una Mesa
+          Mesas Disponibles
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -225,8 +271,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 shadow-lg hover:shadow-2xl transition-all duration-200 active:scale-[0.98] cursor-pointer overflow-hidden`}
             >
               <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl filter drop-shadow">{game.icon}</span>
+                <div className="flex items-center gap-3">
+                  {game.renderIcon()}
                   <div>
                     <h4 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
                       {game.title}
@@ -264,18 +310,18 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         <section className="px-4 pt-2">
           <div
             onClick={onOpenAds}
-            className="p-3.5 rounded-2xl bg-gradient-to-r from-yellow-900/40 to-amber-900/40 border border-amber-400/50 flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
+            className="p-3.5 rounded-2xl bg-gradient-to-r from-[#2a1b05] to-[#1a1205] border border-amber-400/50 flex items-center justify-between cursor-pointer active:scale-98 transition-transform shadow-lg"
           >
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">💰</span>
+              <Coins className="w-6 h-6 text-amber-400" />
               <div>
-                <div className="text-xs font-bold text-amber-300">¡Banca baja de fichas!</div>
+                <div className="text-xs font-bold text-amber-300">Banca baja de fichas</div>
                 <div className="text-[10px] text-neutral-300">
-                  Mira un video de 5 segundos para recibir +$500 pesos gratis.
+                  Mira un anuncio de 5 segundos para recibir +$500 pesos de cortesía.
                 </div>
               </div>
             </div>
-            <button className="px-2.5 py-1 rounded-lg bg-amber-400 text-neutral-950 text-xs font-bold shadow">
+            <button className="px-3 py-1.5 rounded-lg bg-amber-400 text-neutral-950 text-xs font-black shadow">
               Recargar
             </button>
           </div>
@@ -283,7 +329,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       )}
 
       {/* Bottom iOS Floating Dock Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 px-6 py-2.5 bg-neutral-950/90 backdrop-blur-xl border-t border-white/10 flex items-center justify-around safe-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 px-6 py-2.5 bg-[#07070a]/95 backdrop-blur-xl border-t border-white/10 flex items-center justify-around safe-bottom">
         <button
           onClick={() => {
             sound.playChip();
@@ -311,12 +357,24 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           onClick={() => {
             sound.playChip();
             triggerHaptic('medium');
+            onOpenMultiplayer();
+          }}
+          className="flex flex-col items-center gap-0.5 text-amber-300 hover:text-white cursor-pointer"
+        >
+          <Users className="w-5 h-5" />
+          <span className="text-[10px] font-bold">2 Jugadores</span>
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playChip();
+            triggerHaptic('medium');
             onOpenAds();
           }}
           className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer"
         >
           <Award className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Fichas Gratis</span>
+          <span className="text-[10px] font-medium">Fichas</span>
         </button>
 
         <button

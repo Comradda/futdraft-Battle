@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Volume2, VolumeX, Smartphone, Check, Palette } from 'lucide-react';
+import { X, Volume2, VolumeX, Smartphone, Check, Palette, Sparkles, ShieldAlert, HeartHandshake, Scale } from 'lucide-react';
 import type { UserProfile, TableTheme, CardBackTheme, PersonalityType } from '../../types/casino';
 import { CardBack } from '../common/CardView';
 import { sound } from '../../utils/audio';
@@ -34,11 +34,31 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
     { id: 'classic_red', name: 'Vegas Clásico' },
   ];
 
-  const personalities: { id: PersonalityType; name: string; desc: string; icon: string }[] = [
-    { id: 'burlona', name: 'Burlón & Sarcástico', desc: 'Se mofa de tus malas jugadas y apuestas bajas.', icon: '😏' },
-    { id: 'desafiante', name: 'Desafiante VIP', desc: 'Te reta a apostar el doble y duda de tu valor.', icon: '😈' },
-    { id: 'amigable', name: 'Amigable & Socio', desc: 'Te apoya, anima y celebra cada triunfo.', icon: '🤝' },
-    { id: 'neutral', name: 'Crupier Profesional', desc: 'Serio, formal y metódico como en Montecarlo.', icon: '🎩' },
+  const personalities: { id: PersonalityType; name: string; desc: string; renderIcon: () => React.ReactNode }[] = [
+    {
+      id: 'burlona',
+      name: 'Burlón & Sarcástico',
+      desc: 'Comentarios ingeniosos sobre tus jugadas arriesgadas y apuestas.',
+      renderIcon: () => <Sparkles className="w-5 h-5 text-amber-400" />,
+    },
+    {
+      id: 'desafiante',
+      name: 'Desafiante VIP',
+      desc: 'Te incita a elevar la apuesta y pone a prueba tu frialdad.',
+      renderIcon: () => <ShieldAlert className="w-5 h-5 text-rose-400" />,
+    },
+    {
+      id: 'amigable',
+      name: 'Amigable & Compañero',
+      desc: 'Cálido, respetuoso y celebra cada victoria contigo.',
+      renderIcon: () => <HeartHandshake className="w-5 h-5 text-emerald-400" />,
+    },
+    {
+      id: 'neutral',
+      name: 'Crupier Oficial',
+      desc: 'Serio, sobrio y metódico como en el Casino de Montecarlo.',
+      renderIcon: () => <Scale className="w-5 h-5 text-blue-400" />,
+    },
   ];
 
   const handleSelectTable = (theme: TableTheme) => {
@@ -74,7 +94,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
       <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-neutral-900 border border-neutral-700 shadow-2xl p-5 text-white">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
@@ -102,13 +122,15 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
                 <button
                   key={p.id}
                   onClick={() => handleSelectPersonality(p.id)}
-                  className={`flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                     active
                       ? 'bg-amber-500/15 border-amber-400 text-white'
                       : 'bg-neutral-800/60 border-neutral-700 text-neutral-300 hover:bg-neutral-800'
                   }`}
                 >
-                  <span className="text-2xl">{p.icon}</span>
+                  <div className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center">
+                    {p.renderIcon()}
+                  </div>
                   <div className="flex-1">
                     <div className="text-xs font-bold text-amber-300">{p.name}</div>
                     <div className="text-[11px] text-neutral-400 leading-tight">{p.desc}</div>

@@ -24,7 +24,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  const availableAvatars = ['👑', '🤠', '💃', '🎩', '🦊', '🐯', '🐉', '💎', '♠️', '🎰'];
+  const availableAvatars = ['VIP', 'ACE', 'PRO', 'REY', 'ORO', 'FOX', 'LION', 'TITAN'];
 
   const handleSave = () => {
     sound.playChip();
@@ -37,7 +37,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
       <div className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-3xl bg-neutral-900 border border-neutral-700 shadow-2xl overflow-hidden text-white">
         {/* Header */}
         <div className="p-4 pb-3 flex items-center justify-between border-b border-neutral-800">
@@ -63,7 +63,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
-            Datos & Avatar
+            Datos & Placa
           </button>
           <button
             onClick={() => setActiveTab('stats')}
@@ -84,9 +84,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               {/* Avatar Selector */}
               <div>
                 <label className="block text-xs uppercase font-bold text-neutral-400 mb-2">
-                  Selecciona tu Avatar
+                  Insignia del Jugador
                 </label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {availableAvatars.map(av => (
                     <button
                       key={av}
@@ -94,10 +94,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         setSelectedAvatar(av);
                         triggerHaptic('light');
                       }}
-                      className={`h-12 rounded-xl flex items-center justify-center text-2xl border transition-all ${
+                      className={`h-11 rounded-xl flex items-center justify-center text-xs font-black tracking-wider border transition-all ${
                         selectedAvatar === av
-                          ? 'border-amber-400 bg-amber-500/20 scale-105 ring-2 ring-amber-400/40'
-                          : 'border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800'
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-300 ring-2 ring-amber-400/40 shadow-lg'
+                          : 'border-neutral-700 bg-neutral-800/50 text-neutral-300 hover:bg-neutral-800'
                       }`}
                     >
                       {av}
@@ -109,7 +109,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               {/* Name Input */}
               <div>
                 <label className="block text-xs uppercase font-bold text-neutral-400 mb-1.5">
-                  Nombre de Jugador
+                  Alias en la Mesa
                 </label>
                 <input
                   type="text"
@@ -136,9 +136,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-neutral-400">Estado de Cuenta:</span>
+                  <span className="text-neutral-400">Estado de Sincronización:</span>
                   <span className="text-emerald-400 font-bold flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Sincronizado en Local
+                    <Check className="w-3.5 h-3.5" /> Guardado en Dispositivo
                   </span>
                 </div>
               </div>
@@ -146,10 +146,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           ) : (
             <div className="space-y-3">
               {[
-                { title: '🎴 Conquián', data: profile.stats.conquian },
-                { title: '♠️ Blackjack 21', data: profile.stats.blackjack },
-                { title: '🎡 Ruleta Europea', data: profile.stats.roulette },
-                { title: '🃏 Texas Hold\'em Poker', data: profile.stats.poker },
+                { title: 'Conquián Clásico', data: profile.stats.conquian },
+                { title: 'Blackjack 21', data: profile.stats.blackjack },
+                { title: 'Ruleta Europea', data: profile.stats.roulette },
+                { title: 'Texas Hold\'em Poker', data: profile.stats.poker },
               ].map(stat => (
                 <div
                   key={stat.title}

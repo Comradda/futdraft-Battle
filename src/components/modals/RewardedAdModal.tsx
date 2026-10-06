@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Sparkles, X, CheckCircle2, ShieldCheck, Film } from 'lucide-react';
+import { Play, Sparkles, X, CheckCircle2, ShieldCheck, Film, Coins } from 'lucide-react';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
 
@@ -19,7 +19,7 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
   const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: any;
     if (isPlaying && secondsLeft > 0) {
       timer = setTimeout(() => {
         setSecondsLeft(prev => prev - 1);
@@ -46,19 +46,18 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
     onRewardClaimed(500); // 500 pesos de recompensa
     triggerHaptic('success');
     onClose();
-    // Reset state
     setIsCompleted(false);
     setIsPlaying(false);
     setSecondsLeft(5);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
       <div className="relative w-full max-w-sm rounded-2xl bg-neutral-900 border border-amber-500/30 shadow-2xl p-5 overflow-hidden">
         {/* Background glow */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close button (only available if not currently watching mandatory ad) */}
+        {/* Close button */}
         {!isPlaying && (
           <button
             onClick={onClose}
@@ -70,10 +69,10 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
 
         {!isPlaying && !isCompleted && (
           <div className="text-center py-3">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-3xl shadow-inner">
-              💰
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shadow-inner">
+              <Coins className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">¿Te quedaste sin fichas?</h3>
+            <h3 className="text-xl font-bold text-white mb-1">Recarga de Cortesía</h3>
             <p className="text-xs text-neutral-400 mb-5">
               Mira un breve anuncio patrocinado de 5 segundos para recargar tu banca al instante y continuar jugando.
             </p>
@@ -83,15 +82,15 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
                 <Sparkles className="w-5 h-5 text-amber-400" />
                 <span className="text-xs font-semibold text-neutral-300">Bolsa de Recarga:</span>
               </div>
-              <span className="text-sm font-extrabold text-amber-400">+$500 MXN</span>
+              <span className="text-sm font-extrabold text-amber-400 font-mono">+$500 MXN</span>
             </div>
 
             <button
               onClick={handleStartAd}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 font-bold text-neutral-950 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer text-sm"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 font-black text-neutral-950 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider"
             >
               <Play className="w-4 h-4 fill-current" />
-              Ver Anuncio y Ganar Fichas
+              Ver Anuncio y Recargar Fichas
             </button>
           </div>
         )}
@@ -107,18 +106,16 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
               </span>
             </div>
 
-            {/* Simulated Mobile Video Ad Frame */}
-            <div className="w-full h-44 rounded-xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 border border-purple-500/40 p-4 flex flex-col justify-between relative overflow-hidden shadow-inner mb-4">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none" />
-              
+            {/* Mobile Video Ad Frame */}
+            <div className="w-full h-44 rounded-xl bg-gradient-to-br from-[#121b2f] via-[#1b1035] to-[#1a0a14] border border-amber-500/30 p-4 flex flex-col justify-between relative overflow-hidden shadow-inner mb-4">
               <div className="text-left">
-                <span className="text-[10px] font-bold text-purple-300">DISPONIBLE EN WEB & MOVIL</span>
-                <h4 className="text-lg font-black text-white leading-tight">VEGAS ROYALE APP</h4>
+                <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">DISPONIBLE EN WEB & IPHONE</span>
+                <h4 className="text-base font-black text-white leading-tight mt-0.5">MONTECARLO CLUB VIP</h4>
               </div>
 
-              <div className="text-center animate-pulse">
-                <span className="text-4xl">🎰 💎 ⚡</span>
-                <p className="text-xs font-bold text-amber-300 mt-1">¡Gana Premios Reales!</p>
+              <div className="text-center">
+                <Coins className="w-10 h-10 text-amber-400 mx-auto animate-bounce" />
+                <p className="text-xs font-black tracking-wider text-amber-300 uppercase mt-2">Mesas Exclusivas en Vivo</p>
               </div>
 
               {/* Progress bar */}
@@ -142,14 +139,14 @@ export const RewardedAdModal: React.FC<RewardedAdModalProps> = ({
             <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-3xl">
               <CheckCircle2 className="w-9 h-9 text-emerald-400" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">¡Anuncio Completado!</h3>
+            <h3 className="text-xl font-bold text-white mb-1">¡Recarga Acreditada!</h3>
             <p className="text-xs text-neutral-400 mb-4">
-              Tu recompensa de $500 pesos ha sido verificada y acreditada a tu cuenta.
+              Tu dotación de $500 pesos ha sido agregada a tu cuenta correctamente.
             </p>
 
             <button
               onClick={handleClaim}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-bold text-white shadow-lg shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer text-sm"
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-bold text-white shadow-lg shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider"
             >
               Reclamar $500 MXN y Seguir Jugando
             </button>

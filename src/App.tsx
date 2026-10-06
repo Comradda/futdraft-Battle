@@ -16,6 +16,8 @@ import { CustomizationModal } from './components/modals/CustomizationModal';
 import { LeaderboardModal } from './components/modals/LeaderboardModal';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { RewardedAdModal } from './components/modals/RewardedAdModal';
+import { MultiplayerModal } from './components/modals/MultiplayerModal';
+import { multiplayer } from './utils/multiplayer';
 
 export function App() {
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
@@ -26,6 +28,15 @@ export function App() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdOpen, setIsAdOpen] = useState(false);
+  const [isMultiplayerOpen, setIsMultiplayerOpen] = useState(false);
+  const [isMultiplayerConnected, setIsMultiplayerConnected] = useState(false);
+
+  useEffect(() => {
+    const unsub = multiplayer.onStatusChange((status) => {
+      setIsMultiplayerConnected(status === 'connected');
+    });
+    return unsub;
+  }, []);
 
   // Sync sound setting on load
   useEffect(() => {
@@ -61,6 +72,8 @@ export function App() {
           onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
           onOpenProfile={() => setIsProfileOpen(true)}
           onOpenAds={() => setIsAdOpen(true)}
+          onOpenMultiplayer={() => setIsMultiplayerOpen(true)}
+          isMultiplayerConnected={isMultiplayerConnected}
         />
       )}
 
@@ -144,6 +157,15 @@ export function App() {
         isOpen={isAdOpen}
         onClose={() => setIsAdOpen(false)}
         onRewardClaimed={handleRewardClaimed}
+      />
+
+      <MultiplayerModal
+        isOpen={isMultiplayerOpen}
+        onClose={() => setIsMultiplayerOpen(false)}
+        currentUser={profile}
+        onStartMultiplayerGame={(game: GameType) => {
+          setCurrentGame(game);
+        }}
       />
     </main>
   );
