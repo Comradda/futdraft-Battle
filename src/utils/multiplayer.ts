@@ -51,6 +51,10 @@ class MultiplayerManager {
     return this.remotePlayer;
   }
 
+  public getLocalPlayer(): MultiplayerPlayer | null {
+    return this.localPlayer;
+  }
+
   public onMessage(handler: MessageHandler): () => void {
     this.messageListeners.add(handler);
     return () => this.messageListeners.delete(handler);

@@ -38,7 +38,7 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
   const [selectedGame, setSelectedGame] = useState<GameType>('conquian');
 
   useEffect(() => {
-    const unsub = multiplayer.onStatusChange((newStatus, details) => {
+    const unsubStatus = multiplayer.onStatusChange((newStatus, details) => {
       setStatus(newStatus);
       if (details) setStatusMsg(details);
       if (newStatus === 'connected') {
@@ -47,10 +47,24 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
       }
     });
 
+    const unsubMsg = multiplayer.onMessage((msg) => {
+      if (msg.type === 'GAME_ACTION' && msg.payload) {
+        if (msg.payload.action === 'START_GAME' && msg.payload.game) {
+          sound.playCardDeal();
+          triggerHaptic('success');
+          onStartMultiplayerGame(msg.payload.game);
+          onClose();
+        } else if (msg.payload.action === 'SELECT_GAME' && msg.payload.game) {
+          setSelectedGame(msg.payload.game);
+        }
+      }
+    });
+
     return () => {
-      unsub();
+      unsubStatus();
+      unsubMsg();
     };
-  }, []);
+  }, [onStartMultiplayerGame, onClose]);
 
   if (!isOpen) return null;
 
@@ -260,29 +274,44 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
 
             {/* Game Selector */}
             <div>
-              <label className="block text-xs font-bold text-neutral-300 uppercase tracking-wider mb-2">
-                Selecciona el Juego a Jugar Juntos:
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
+                  {multiplayer.getIsHost() ? 'Selecciona el Juego a Jugar Juntos:' : 'Juego Seleccionado por el Anfitrión:'}
+                </label>
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  {multiplayer.getIsHost() ? 'Eres el Anfitrión' : 'Eres Invitado'}
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'conquian', name: 'Conquián Clásico', desc: 'Mano a mano 40 cartas' },
-                  { id: 'poker', name: 'Texas Hold\'em', desc: 'Duelo de apuestas' },
                   { id: 'blackjack', name: 'Blackjack 21', desc: 'Misma mesa vs Crupier' },
+                  { id: 'conquian', name: 'Conquián Clásico', desc: 'Mano a mano 40 cartas' },
                   { id: 'roulette', name: 'Ruleta Europea', desc: 'Mismo paño y rueda' },
+                  { id: 'poker', name: 'Texas Hold\'em', desc: 'Duelo de apuestas' },
                 ].map((g) => {
                   const active = selectedGame === g.id;
+                  const isHost = multiplayer.getIsHost();
                   return (
                     <button
                       key={g.id}
+                      disabled={!isHost}
                       onClick={() => {
+                        if (!isHost) return;
                         setSelectedGame(g.id as GameType);
                         triggerHaptic('light');
+                        multiplayer.send({
+                          type: 'GAME_ACTION',
+                          senderId: currentUser.id,
+                          senderName: currentUser.name,
+                          payload: { action: 'SELECT_GAME', game: g.id },
+                          timestamp: Date.now(),
+                        });
                       }}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
                         active
-                          ? 'border-amber-400 bg-amber-500/20 text-white ring-2 ring-amber-400/40'
+                          ? 'border-amber-400 bg-amber-500/20 text-white ring-2 ring-amber-400/40 shadow-lg'
                           : 'border-neutral-700 bg-neutral-800/60 text-neutral-400 hover:bg-neutral-800'
-                      }`}
+                      } ${!isHost ? 'cursor-default' : 'cursor-pointer active:scale-95'}`}
                     >
                       <div className="text-xs font-bold text-amber-300">{g.name}</div>
                       <div className="text-[10px] text-neutral-400">{g.desc}</div>
@@ -292,13 +321,20 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleStartGame}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-black text-white text-xs tracking-wider uppercase shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              Comenzar Partida Mano a Mano
-            </button>
+            {multiplayer.getIsHost() ? (
+              <button
+                onClick={handleStartGame}
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-black text-white text-xs tracking-wider uppercase shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Comenzar Partida Mano a Mano
+              </button>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-neutral-800/80 border border-amber-500/30 text-center animate-pulse flex items-center justify-center gap-2 text-xs font-bold text-amber-300">
+                <Radio className="w-4 h-4 text-amber-400 animate-spin" />
+                Esperando que {remotePlayer?.name || 'tu hermano'} inicie la mesa...
+              </div>
+            )}
           </div>
         )}
 

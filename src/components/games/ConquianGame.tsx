@@ -119,6 +119,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
         if (action === 'DEAL') {
           const { guestHand, hostHand, remateDeck: remate, currentPot: pot, betAmount: bet } = msg.payload;
           if (!multiplayer.getIsHost()) {
+            onUpdateProfile({ bankroll: profile.bankroll - bet });
             setPlayerHand(guestHand);
             setCrupierHand(hostHand);
             setRemateDeck(remate);
@@ -127,7 +128,7 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
             setPlayerMelds([]);
             setCrupierMelds([]);
             setSelectedCardIds([]);
-            setFeedbackMsg('');
+            setFeedbackMsg('¡Baraja repartida! Espera el turno de tu hermano.');
             setRoundResult(null);
             setCurrentPot(pot);
             setBetAmount(bet);
@@ -142,6 +143,31 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
           setRemateDeck(nextRemate);
           setCardSource('remate');
           sound.playCardDeal();
+        } else if (action === 'TAKE_DISCARD') {
+          const { drawn } = msg.payload;
+          setDiscardPile(prev => prev.slice(0, prev.length - 1));
+          setDrawnCard(drawn);
+          setCardSource('discard');
+          sound.playCardDeal();
+        } else if (action === 'PASS') {
+          const { card } = msg.payload;
+          setDiscardPile(prev => [...prev, card]);
+          setDrawnCard(null);
+          setTurn('player');
+          setTurnStep('choose_draw');
+          sound.playCardFlip();
+        } else if (action === 'FORCE_PLAYER') {
+          const { forcedCard } = msg.payload;
+          setPlayerMelds(prevMelds => {
+            const nextMelds = applyForcedCard(forcedCard, prevMelds);
+            return nextMelds || prevMelds;
+          });
+          setDrawnCard(null);
+          setTurn('player');
+          setTurnStep('must_discard');
+          setFeedbackMsg('¡Te metieron una carta obligatoria! Descarta 1 carta de tu mano.');
+          sound.playChip();
+          triggerHaptic('warning');
         } else if (action === 'DISCARD') {
           const { card, nextHand, nextMelds } = msg.payload;
           setDiscardPile(prev => [card, ...prev]);
@@ -156,6 +182,8 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
           setCrupierMelds(melds);
           setCrupierHand(hand);
           sound.playChip();
+        } else if (action === 'GAME_OVER') {
+          handleGameEnd(msg.payload.winner, msg.payload.reason);
         }
       }
     });
@@ -230,6 +258,23 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     setTurnStep('choose_draw');
     setPhase('playing');
 
+    if (isP2P && multiplayer.getIsHost()) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: {
+          action: 'DEAL',
+          hostHand: pHand,
+          guestHand: aHand,
+          remateDeck: remate,
+          currentPot: bet * 2,
+          betAmount: bet,
+        },
+        timestamp: Date.now(),
+      });
+    }
+
     const initialSpeech = getCrupierDialogue('start_round', profile.crupierPersonality);
     speakCrupier(initialSpeech, 'talking');
     sound.playCardDeal();
@@ -280,6 +325,20 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
         profit,
         message: reasonMsg || '¡Bajaste 9 cartas! Conquián completado.',
       });
+
+      if (isP2P) {
+        multiplayer.send({
+          type: 'GAME_ACTION',
+          senderId: profile.id,
+          senderName: profile.name,
+          payload: {
+            action: 'GAME_OVER',
+            winner: 'crupier',
+            reason: reasonMsg || '¡Tu hermano bajó 9 cartas y ganó la partida!',
+          },
+          timestamp: Date.now(),
+        });
+      }
     } else if (winner === 'crupier') {
       onUpdateProfile({
         stats: {
@@ -496,11 +555,22 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     triggerHaptic('light');
 
     const card = remateDeck[0];
-    setRemateDeck((prev) => prev.slice(1));
+    const nextRemate = remateDeck.slice(1);
+    setRemateDeck(nextRemate);
     setDrawnCard(card);
     setCardSource('remate');
     setTurnStep('action_drawn');
     setFeedbackMsg(`Robaste ${card.name}. Bájala, métela o pásala.`);
+
+    if (isP2P) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'DRAW_REMATO', drawn: card, nextRemate },
+        timestamp: Date.now(),
+      });
+    }
   };
 
   // Take card from Discard pile (only if legal to meld!)
@@ -527,6 +597,16 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     setCardSource('discard');
     setTurnStep('action_drawn');
     setFeedbackMsg(`Tomaste ${topDiscard.name}. Selecciona tus cartas y presiona "Bajar".`);
+
+    if (isP2P) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'TAKE_DISCARD', drawn: topDiscard },
+        timestamp: Date.now(),
+      });
+    }
   };
 
   // Toggle selection of card in hand
@@ -604,6 +684,16 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
 
     const meldedCount = countMeldedCards(updatedMelds);
 
+    if (isP2P) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'MELD_UPDATE', melds: updatedMelds, hand: updatedHand },
+        timestamp: Date.now(),
+      });
+    }
+
     // Win condition check: 9 cards
     if (meldedCount >= WINNING_CARD_COUNT) {
       handleGameEnd('player', '¡Felicidades! Bajaste las 9 cartas.');
@@ -640,7 +730,22 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     if (!updatedCrupierMelds) return;
 
     setCrupierMelds(updatedCrupierMelds);
+    const cardToForce = drawnCard;
     setDrawnCard(null);
+
+    if (isP2P) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'FORCE_PLAYER', forcedCard: cardToForce },
+        timestamp: Date.now(),
+      });
+      setFeedbackMsg('¡Le metiste la carta a tu hermano! Ahora tu hermano debe descartar.');
+      setTurn('crupier');
+      setTurnStep('choose_draw');
+      return;
+    }
 
     const speech = getCrupierDialogue('player_forced_crupier', profile.crupierPersonality);
     speakCrupier(speech, 'shocked');
@@ -678,6 +783,21 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
     const card = drawnCard;
     setDrawnCard(null);
     setFeedbackMsg('');
+
+    if (isP2P) {
+      setDiscardPile((prev) => [...prev, card]);
+      setTurn('crupier');
+      setTurnStep('choose_draw');
+      setFeedbackMsg('Pasaste la carta. Turno de tu hermano.');
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'PASS', card },
+        timestamp: Date.now(),
+      });
+      return;
+    }
 
     // Crupier evaluates if they want the passed card
     const crupierEvaluation = evaluateAICardPlay(card, crupierHand, crupierMelds, playerMelds);
@@ -996,14 +1116,21 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
             </div>
 
             {/* Deal Button */}
-            <button
-              onClick={() => startNewGame()}
-              disabled={profile.bankroll < betAmount}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Repartir Baraja (${betAmount})</span>
-            </button>
+            {isP2P && !multiplayer.getIsHost() ? (
+              <div className="w-full py-3.5 px-4 rounded-2xl bg-neutral-900 border border-amber-500/40 text-center text-xs font-bold text-amber-300 animate-pulse flex items-center justify-center gap-2">
+                <Wifi className="w-4 h-4 text-emerald-400" />
+                Esperando que {remotePlayer?.name || 'el Anfitrión'} reparta la baraja...
+              </div>
+            ) : (
+              <button
+                onClick={() => startNewGame()}
+                disabled={profile.bankroll < betAmount}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Repartir Baraja (${betAmount})</span>
+              </button>
+            )}
           </div>
         ) : (
           // ==========================================

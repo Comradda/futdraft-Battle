@@ -32,11 +32,45 @@ export function App() {
   const [isMultiplayerConnected, setIsMultiplayerConnected] = useState(false);
 
   useEffect(() => {
-    const unsub = multiplayer.onStatusChange((status) => {
+    const unsubStatus = multiplayer.onStatusChange((status) => {
       setIsMultiplayerConnected(status === 'connected');
     });
-    return unsub;
+
+    const unsubMsg = multiplayer.onMessage((msg) => {
+      if (msg.type === 'GAME_ACTION' && msg.payload) {
+        if (msg.payload.action === 'START_GAME' && msg.payload.game) {
+          setCurrentGame(msg.payload.game);
+          setIsMultiplayerOpen(false);
+          sound.playCardDeal();
+          triggerHaptic('success');
+        } else if (msg.payload.action === 'LEAVE_TO_LOBBY') {
+          setCurrentGame('lobby');
+          sound.playChip();
+          triggerHaptic('light');
+        }
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubMsg();
+    };
   }, []);
+
+  const handleBackToLobby = () => {
+    sound.playChip();
+    triggerHaptic('light');
+    if (isMultiplayerConnected) {
+      multiplayer.send({
+        type: 'GAME_ACTION',
+        senderId: profile.id,
+        senderName: profile.name,
+        payload: { action: 'LEAVE_TO_LOBBY' },
+        timestamp: Date.now(),
+      });
+    }
+    setCurrentGame('lobby');
+  };
 
   // Sync sound setting on load
   useEffect(() => {
@@ -82,11 +116,7 @@ export function App() {
         <BlackjackGame
           userProfile={profile}
           onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={() => {
-            sound.playChip();
-            triggerHaptic('light');
-            setCurrentGame('lobby');
-          }}
+          onBackToLobby={handleBackToLobby}
           onOpenRechargeModal={() => setIsAdOpen(true)}
         />
       )}
@@ -96,11 +126,7 @@ export function App() {
         <PokerGame
           userProfile={profile}
           onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={() => {
-            sound.playChip();
-            triggerHaptic('light');
-            setCurrentGame('lobby');
-          }}
+          onBackToLobby={handleBackToLobby}
           onOpenRechargeModal={() => setIsAdOpen(true)}
         />
       )}
@@ -110,11 +136,7 @@ export function App() {
         <ConquianGame
           profile={profile}
           onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={() => {
-            sound.playChip();
-            triggerHaptic('light');
-            setCurrentGame('lobby');
-          }}
+          onBackToLobby={handleBackToLobby}
         />
       )}
 
@@ -123,11 +145,7 @@ export function App() {
         <RouletteGame
           userProfile={profile}
           onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={() => {
-            sound.playChip();
-            triggerHaptic('light');
-            setCurrentGame('lobby');
-          }}
+          onBackToLobby={handleBackToLobby}
           onOpenRechargeModal={() => setIsAdOpen(true)}
         />
       )}
