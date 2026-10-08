@@ -21,6 +21,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   if (!isOpen) return null;
 
   const tableThemes: { id: TableTheme; name: string; bgClass: string }[] = [
+    { id: 'black_gold', name: 'Negro & Oro Brillante VIP', bgClass: 'bg-black border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' },
     { id: 'emerald', name: 'Verde Esmeralda', bgClass: 'bg-emerald-800' },
     { id: 'royal_blue', name: 'Azul Montecarlo', bgClass: 'bg-blue-800' },
     { id: 'crimson', name: 'Rojo Carmesí', bgClass: 'bg-red-800' },
@@ -74,7 +75,7 @@ export const CustomizationModal: React.FC<CustomizationModalProps> = ({
   };
 
   const handleSelectPersonality = (p: PersonalityType) => {
-    sound.playDealerVoice();
+    sound.playChip();
     triggerHaptic('medium');
     onUpdateProfile({ crupierPersonality: p });
   };

@@ -56,24 +56,33 @@ export function createShoe(deckCount: number = 6): StandardCard[] {
 }
 
 /**
- * Fisher-Yates array shuffle with Cryptographically Secure Pseudo-Random Number Generator (CSPRNG)
- * Garantiza azar genuino de casino (sin patrones, sin trampas, entropía de grado criptográfico).
+ * Triple-Pass Fisher-Yates array shuffle with Cryptographically Secure Pseudo-Random Number Generator (CSPRNG)
+ * y corte aleatorio de baraja tipo Casino Internacional.
+ * Garantiza azar genuino absoluto, sin patrones, sin rachas forzadas y entropía física de hardware.
  */
 export function shuffleShoe(shoe: StandardCard[]): StandardCard[] {
-  const deck = [...shoe];
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-    const randomBuffer = new Uint32Array(deck.length);
-    window.crypto.getRandomValues(randomBuffer);
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor((randomBuffer[i] / (0xffffffff + 1)) * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-  } else {
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
+  let deck = [...shoe];
+  const passes = 3;
+
+  for (let p = 0; p < passes; p++) {
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+      const randomBuffer = new Uint32Array(deck.length);
+      window.crypto.getRandomValues(randomBuffer);
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor((randomBuffer[i] / 4294967296) * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      // Corte de mazo tipo casino
+      const cutIndex = Math.floor((randomBuffer[0] / 4294967296) * (deck.length - 30)) + 15;
+      deck = [...deck.slice(cutIndex), ...deck.slice(0, cutIndex)];
+    } else {
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
     }
   }
+
   return deck;
 }
 
@@ -112,17 +121,26 @@ export function calculateHandValue(cards: StandardCard[]): HandValue {
 }
 
 /**
- * Realistic casino dealer rule:
- * Hits on any total < 17
- * Hits on Soft 17 (e.g. Ace + 6 or Ace + 2 + 4)
- * Stands on Hard 17 or any total 18-21
+ * Regla de Casino S17 (Dealer Stands on ALL 17s):
+ * El crupier pide carta ÚNICAMENTE si tiene 16 o menos (< 17).
+ * Se planta estrictamente con cualquier 17 (suave o duro) o más (17-21).
+ * Nunca pide carta cuando tiene 17.
  */
 export function shouldDealerHit(dealerCards: StandardCard[]): boolean {
-  const { total, isSoft, isBust } = calculateHandValue(dealerCards);
+  const { total, isBust } = calculateHandValue(dealerCards);
   if (isBust) return false;
-  if (total < 17) return true;
-  if (total === 17 && isSoft) return true; // Hits on Soft 17
-  return false; // Stands on Hard 17 and 18+
+  return total < 17; // Se planta en 17, 18, 19, 20 y 21
+}
+
+/**
+ * Checks whether 2 cards can be split (matching rank or 10-value)
+ */
+export function canSplitCards(cards: StandardCard[]): boolean {
+  if (cards.length !== 2) return false;
+  const [c1, c2] = cards;
+  const sameRank = c1.rank === c2.rank;
+  const sameTenValue = getRankValue(c1.rank) === 10 && getRankValue(c2.rank) === 10;
+  return sameRank || sameTenValue;
 }
 
 /**
@@ -130,14 +148,8 @@ export function shouldDealerHit(dealerCards: StandardCard[]): boolean {
  * Must have exactly 2 cards and matching rank or 10-value
  */
 export function canSplitHand(hand: BlackjackHand, playerBankroll: number): boolean {
-  if (hand.cards.length !== 2) return false;
-  if (playerBankroll < hand.bet) return false;
-
-  const [c1, c2] = hand.cards;
-  const sameRank = c1.rank === c2.rank;
-  const sameTenValue = getRankValue(c1.rank) === 10 && getRankValue(c2.rank) === 10;
-
-  return sameRank || sameTenValue;
+  if (!canSplitCards(hand.cards)) return false;
+  return playerBankroll >= hand.bet;
 }
 
 /**

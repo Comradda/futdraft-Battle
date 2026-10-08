@@ -107,8 +107,6 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
       setCrupierSpeech(speech);
       setIsCrupierSpeaking(true);
 
-      // Attractive voice synthesis
-      sound.speakDealer(speech.text, userProfile.crupierPersonality);
 
       if (speech.mood === 'laughing' || (userProfile.crupierPersonality === 'burlona' && speech.mood === 'smirk')) {
         setTimeout(() => {

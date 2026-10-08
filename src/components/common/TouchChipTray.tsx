@@ -5,6 +5,7 @@ import { triggerHaptic } from '../../utils/haptics';
 interface TouchChipTrayProps {
   onAddChip: (val: number) => void;
   disabled?: boolean;
+  userBankroll?: number;
 }
 
 interface DragState {
@@ -16,7 +17,14 @@ interface DragState {
   startY: number;
 }
 
-export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disabled = false }) => {
+export const formatChipLabel = (val: number): string => {
+  if (val >= 1000000) return `$${val / 1000000}M`;
+  if (val >= 1000) return `$${val / 1000}k`;
+  return `$${val}`;
+};
+
+export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disabled = false, userBankroll = 0 }) => {
+  const [tier, setTier] = useState<'standard' | 'high_roller'>(() => (userBankroll >= 50000 ? 'high_roller' : 'standard'));
   const [dragState, setDragState] = useState<DragState | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   dragStateRef.current = dragState;
@@ -31,9 +39,17 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
     50: { bg: 'from-red-600 to-red-900', border: 'border-red-400', text: 'text-white' },
     100: { bg: 'from-neutral-900 to-black', border: 'border-amber-400', text: 'text-amber-300' },
     500: { bg: 'from-purple-800 to-purple-950', border: 'border-purple-300', text: 'text-white' },
+    1000: { bg: 'from-amber-600 via-amber-500 to-yellow-700', border: 'border-amber-300', text: 'text-neutral-950' },
+    5000: { bg: 'from-rose-600 via-red-500 to-rose-900', border: 'border-rose-300', text: 'text-white' },
+    25000: { bg: 'from-cyan-600 via-blue-500 to-cyan-900', border: 'border-cyan-300', text: 'text-white' },
+    100000: { bg: 'from-emerald-500 via-green-600 to-teal-900', border: 'border-emerald-300', text: 'text-white' },
+    500000: { bg: 'from-purple-600 via-fuchsia-600 to-purple-950', border: 'border-fuchsia-300', text: 'text-white' },
+    1000000: { bg: 'from-yellow-300 via-amber-400 to-yellow-600', border: 'border-yellow-100', text: 'text-neutral-950' },
   };
 
-  const chips = [10, 25, 50, 100, 500];
+  const standardChips = [25, 50, 100, 500, 1000];
+  const highRollerChips = [5000, 25000, 100000, 500000, 1000000];
+  const chips = tier === 'high_roller' ? highRollerChips : standardChips;
 
   // Global move and release handlers
   const handleMove = useCallback((clientX: number, clientY: number) => {
@@ -143,11 +159,70 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
   };
 
   return (
-    <>
+    <div className="flex flex-col gap-1.5 w-full max-w-md mx-auto touch-none select-none">
+      {/* Tier Switcher & Quick Bet Bar */}
+      <div className="flex items-center justify-between px-1">
+        {/* Tier Toggle */}
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-black/60 border border-white/10 text-[10px]">
+          <button
+            type="button"
+            onClick={() => {
+              sound.playChip();
+              triggerHaptic('light');
+              setTier('standard');
+            }}
+            className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+              tier === 'standard'
+                ? 'bg-amber-500 text-neutral-950 shadow'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            Fichas Clásicas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sound.playChip(1000);
+              triggerHaptic('medium');
+              setTier('high_roller');
+            }}
+            className={`px-2 py-0.5 rounded-full font-black transition-all cursor-pointer flex items-center gap-1 ${
+              tier === 'high_roller'
+                ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-neutral-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                : 'text-amber-400 hover:text-amber-300'
+            }`}
+          >
+            <span>👑 High Roller</span>
+            <span className="text-[8px] bg-black/40 px-1 rounded text-white font-mono">$1M</span>
+          </button>
+        </div>
+
+        {/* Quick Multipliers for High Roller */}
+        {tier === 'high_roller' && (
+          <div className="flex items-center gap-1 text-[10px] overflow-x-auto max-w-[210px] no-scrollbar">
+            {[10000, 50000, 100000, 500000, 1000000].map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                onClick={() => {
+                  sound.playChip(amt);
+                  triggerHaptic('medium');
+                  onAddChip(amt);
+                }}
+                className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-amber-400 hover:text-black font-black font-mono text-amber-300 border border-amber-500/30 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              >
+                +{formatChipLabel(amt)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Chip Selection Tray */}
-      <div className="flex items-center justify-around py-1 w-full max-w-md mx-auto touch-none select-none">
+      <div className="flex items-center justify-around py-1 w-full">
         {chips.map((val) => {
-          const color = chipColors[val] || chipColors[10];
+          const color = chipColors[val] || chipColors[100];
+          const label = formatChipLabel(val);
 
           return (
             <div
@@ -171,11 +246,11 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
               >
                 {/* Inner Ring */}
                 <div className="w-[74%] h-[74%] rounded-full bg-black/40 border border-white/20 flex items-center justify-center shadow-inner">
-                  <span className="tracking-tight">${val}</span>
+                  <span className="tracking-tight font-black">{label}</span>
                 </div>
               </div>
-              <span className="text-[10px] text-neutral-400 font-bold mt-1">
-                ${val}
+              <span className="text-[10px] text-neutral-300 font-bold mt-1 font-mono">
+                {label}
               </span>
             </div>
           );
@@ -205,11 +280,11 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
             } text-sm`}
           >
             <div className="w-[74%] h-[74%] rounded-full bg-black/50 border border-white/30 flex items-center justify-center shadow-inner">
-              <span className="tracking-tight drop-shadow">${dragState.value}</span>
+              <span className="tracking-tight drop-shadow font-black">{formatChipLabel(dragState.value)}</span>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

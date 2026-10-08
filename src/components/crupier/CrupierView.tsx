@@ -81,8 +81,7 @@ export const CrupierView: React.FC<CrupierViewProps> = ({
       const isFemale = activeConfig.gender === 'female';
 
       if (!isMuted) {
-        // 1. Spoken seductive / charismatic vocalization
-        sound.speakDealer(dialogue.text, personality);
+        // Genuine mocking or winning sound effects
 
         // 2. Genuine mocking laughter when player loses
         const evt = explicitEvent || event;
@@ -236,12 +235,10 @@ export const CrupierView: React.FC<CrupierViewProps> = ({
               <div
                 onClick={() => {
                   triggerHaptic('light');
-                  if (!isMuted) sound.speakDealer(speech.text, personality);
                 }}
                 role="status"
                 aria-live="polite"
-                className="relative cursor-pointer transition-all duration-300 ease-out transform animate-in fade-in zoom-in-95"
-                title="Toca para escuchar la voz de nuevo"
+                className="relative transition-all duration-300 ease-out transform animate-in fade-in zoom-in-95"
               >
                 {/* Speech Bubble Tail pointing to avatar */}
                 <div

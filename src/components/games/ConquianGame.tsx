@@ -202,7 +202,6 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
   const speakCrupier = (text: string, mood: 'neutral' | 'talking' | 'taunting' | 'shocked' = 'talking') => {
     setCrupierSpeech(text);
     setCrupierMood(mood);
-    sound.speakDealer(text, profile.crupierPersonality);
     if (mood === 'taunting') {
       setTimeout(() => {
         sound.playDealerLaugh(profile.crupierPersonality !== 'desafiante');
@@ -213,6 +212,8 @@ export const ConquianGame: React.FC<ConquianGameProps> = ({
   // Helper for Table theme styling
   const getTableThemeClasses = (theme: TableTheme) => {
     switch (theme) {
+      case 'black_gold':
+        return 'table-felt-black_gold border-yellow-500/50';
       case 'royal_blue':
         return 'table-felt-royal_blue border-blue-600/30';
       case 'crimson':

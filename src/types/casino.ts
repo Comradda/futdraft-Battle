@@ -2,7 +2,7 @@ export type GameType = 'lobby' | 'conquian' | 'blackjack' | 'roulette' | 'poker'
 
 export type PersonalityType = 'neutral' | 'burlona' | 'desafiante' | 'amigable';
 
-export type TableTheme = 'emerald' | 'royal_blue' | 'crimson' | 'obsidian';
+export type TableTheme = 'emerald' | 'royal_blue' | 'crimson' | 'obsidian' | 'black_gold';
 
 export type CardBackTheme = 'dragon_gold' | 'aztec_royal' | 'cyberpunk' | 'classic_red';
 

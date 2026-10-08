@@ -1,9 +1,9 @@
 import React from 'react';
 import type { PersonalityType } from '../../types/casino';
-import { PERSONALITY_LIST, PERSONALITY_CONFIGS } from '../../utils/crupierAI';
+import { PERSONALITY_LIST } from '../../utils/crupierAI';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
-import { X, Check, Volume2, Sparkles } from 'lucide-react';
+import { X, Check, Sparkles } from 'lucide-react';
 
 interface DealerSelectModalProps {
   isOpen: boolean;
@@ -20,22 +20,10 @@ export const DealerSelectModal: React.FC<DealerSelectModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const handlePreviewVoice = (p: PersonalityType, e: React.MouseEvent) => {
-    e.stopPropagation();
-    triggerHaptic('light');
-    const cfg = PERSONALITY_CONFIGS[p];
-    if (cfg) {
-      sound.speakDealer(cfg.sampleLine, p);
-    }
-  };
-
   const handleSelect = (p: PersonalityType) => {
+    sound.playChip(100);
     triggerHaptic('medium');
     onSelectPersonality(p);
-    const cfg = PERSONALITY_CONFIGS[p];
-    if (cfg) {
-      sound.speakDealer(cfg.sampleLine, p);
-    }
     onClose();
   };
 
@@ -119,19 +107,18 @@ export const DealerSelectModal: React.FC<DealerSelectModalProps> = ({
                     {dealer.description}
                   </p>
 
-                  {/* Voice Preview Button */}
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => handlePreviewVoice(dealer.id, e)}
-                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-amber-500/20 text-neutral-200 hover:text-amber-300 text-[10px] font-bold flex items-center gap-1.5 transition-all border border-white/10 active:scale-95"
-                    >
-                      <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-                      Probar Acento
-                    </button>
-                    {!isSelected && (
-                      <span className="text-[10px] text-neutral-400 font-medium">
-                        Toca para elegir
+                  {/* Dealer Sample Quote & Select Indicator */}
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-amber-300/80 italic truncate max-w-[200px]">
+                      &ldquo;{dealer.sampleLine}&rdquo;
+                    </span>
+                    {!isSelected ? (
+                      <span className="text-[10px] text-amber-400 font-bold bg-white/5 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-white/10 shrink-0">
+                        Elegir
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-emerald-400 font-bold shrink-0">
+                        Seleccionada
                       </span>
                     )}
                   </div>

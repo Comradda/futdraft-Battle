@@ -244,148 +244,31 @@ class SoundEngine {
   }
 
   // ==========================================
-  // 3. GENUINE CRUPIER LAUGHTER ON LOSS
+  // 3. CRUPIER EFFECTS (Voces robóticas eliminadas)
   // ==========================================
 
-  /**
-   * Generates real acoustic chuckles / taunting laughter when player loses
-   */
-  public playDealerLaugh(isFemale: boolean = true) {
-    if (!this.enabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const chuckles = [0, 0.12, 0.23, 0.33, 0.42]; // Rhythmic "Ha-ha-ha-ha-ha"
-    const basePitch = isFemale ? 580 : 380;
-
-    chuckles.forEach((delay, idx) => {
-      const t = now + delay;
-      const osc = this.ctx!.createOscillator();
-      const formant = this.ctx!.createBiquadFilter();
-      const gain = this.ctx!.createGain();
-
-      osc.type = 'sawtooth';
-      const pitchOffset = idx === 0 ? 1.05 : idx === 1 ? 1.15 : idx === 2 ? 1.0 : idx === 3 ? 0.9 : 0.8;
-      osc.frequency.setValueAtTime(basePitch * pitchOffset, t);
-      osc.frequency.exponentialRampToValueAtTime(basePitch * pitchOffset * 0.85, t + 0.09);
-
-      // Vocal formant filter (mimics human mouth "A-ha" resonance)
-      formant.type = 'bandpass';
-      formant.frequency.setValueAtTime(isFemale ? 1150 : 850, t);
-      formant.Q.setValueAtTime(3.5, t);
-
-      gain.gain.setValueAtTime(0.25 - idx * 0.03, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-
-      osc.connect(formant);
-      formant.connect(gain);
-      gain.connect(this.ctx!.destination);
-
-      osc.start(t);
-      osc.stop(t + 0.1);
-    });
+  public playDealerLaugh(_isFemale: boolean = true) {
+    // Risas robóticas desactivadas por solicitud del usuario
+    return;
   }
 
   // ==========================================
-  // 4. REGIONAL MEXICAN VOICE SYNTHESIS
+  // 4. REGIONAL MEXICAN VOICE SYNTHESIS (DESACTIVADO)
   // ==========================================
 
   /**
-   * Speaks dealer dialogue using authentic regional Mexican cadence and tuning
+   * Las voces robóticas de los crupiers han sido eliminadas por solicitud directa del usuario.
+   * Se mantienen al 100% los efectos de sonido reales de casino (fichas, monedas, ruleta, caja registradora, cartas).
    */
-  public speakDealer(text: string, personality: PersonalityType = 'burlona') {
-    if (!this.enabled) return;
-
-    if (!('speechSynthesis' in window)) {
-      this.playDealerVoice();
-      return;
-    }
-
-    try {
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-MX';
-
-      const voices = window.speechSynthesis.getVoices();
-      const spanishVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('es'));
-
-      // Regional Mexican vocal profiles
-      if (personality === 'burlona') {
-        // Valeria (Monterrey / Regia): Golpeteadito norteño rápido, picudo y burlón
-        const regiaVoice =
-          spanishVoices.find((v) => {
-            const name = v.name.toLowerCase();
-            return (
-              name.includes('paulina') ||
-              name.includes('angélica') ||
-              name.includes('angelica') ||
-              (name.includes('mexico') && !name.includes('male'))
-            );
-          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
-
-        if (regiaVoice) utterance.voice = regiaVoice;
-        utterance.pitch = 1.15; // Tono picudo norteño
-        utterance.rate = 1.04;  // Cadencia rápida y segura
-      } else if (personality === 'amigable') {
-        // Elena (Guadalajara / Bajío): Dulce, cantadita, cálida y cariñosa
-        const bajioVoice =
-          spanishVoices.find((v) => {
-            const name = v.name.toLowerCase();
-            return (
-              name.includes('sabina') ||
-              name.includes('mónica') ||
-              name.includes('monica') ||
-              name.includes('luciana') ||
-              name.includes('helena')
-            );
-          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
-
-        if (bajioVoice) utterance.voice = bajioVoice;
-        utterance.pitch = 1.28; // Tono más agudo, dulce y meloso
-        utterance.rate = 0.94;  // Cadencia suave y consentidora
-      } else if (personality === 'neutral') {
-        // Sarah (CDMX / Chilanga Fina): Seductora, cosmopolita, relajada
-        const chilangaVoice =
-          spanishVoices.find((v) => {
-            const name = v.name.toLowerCase();
-            return (
-              name.includes('luciana') ||
-              name.includes('paloma') ||
-              name.includes('helena') ||
-              name.includes('paulina') ||
-              v.lang === 'es-ES'
-            );
-          }) || spanishVoices[0];
-
-        if (chilangaVoice) utterance.voice = chilangaVoice;
-        utterance.pitch = 1.02; // Tono elegante y aterciopelado
-        utterance.rate = 0.96;  // Cadencia tranquila y coqueta
-      } else {
-        // Marcus (El Patrón / Norteño Bravo): Voz gruesa, ronca, imponente
-        const patronVoice =
-          spanishVoices.find((v) => {
-            const name = v.name.toLowerCase();
-            return (
-              name.includes('jorge') ||
-              name.includes('diego') ||
-              name.includes('juan') ||
-              name.includes('carlos') ||
-              name.includes('male')
-            );
-          }) || spanishVoices.find((v) => v.lang === 'es-MX') || spanishVoices[0];
-
-        if (patronVoice) utterance.voice = patronVoice;
-        utterance.pitch = 0.76; // Tono bajo de barítono profundo
-        utterance.rate = 0.88;  // Cadencia pausada, firme y dominante
+  public speakDealer(_text: string, _personality: PersonalityType = 'burlona') {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
       }
-
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      // Fallback blip
-      this.playDealerVoice();
     }
+    return;
   }
 
   // ==========================================
@@ -651,27 +534,8 @@ class SoundEngine {
     });
   }
 
-  public playDealerVoice(pitch: number = 440) {
-    if (!this.enabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(pitch, now);
-    osc.frequency.exponentialRampToValueAtTime(pitch * 0.9, now + 0.04);
-
-    gain.gain.setValueAtTime(0.08, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.05);
+  public playDealerVoice(_pitch: number = 440) {
+    return;
   }
 }
 
