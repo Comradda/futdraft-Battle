@@ -92,6 +92,15 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
+  // Profile ref to prevent stale closures during multi-second spins
+  const userProfileRef = useRef(userProfile);
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
+
+  const bankrollAfterBetRef = useRef<number>(userProfile.bankroll);
+  const activeBetsForRoundRef = useRef<PlacedBet[]>([]);
+
   // Wheel animation states
   const wheelAngleRef = useRef<number>(0);
   const ballAngleRef = useRef<number>(0);
@@ -392,14 +401,17 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
     }
 
     // Check bankroll
-    if (userProfile.bankroll < totalBetAmount) {
+    const currentBankroll = userProfileRef.current.bankroll;
+    if (currentBankroll < totalBetAmount) {
       triggerHaptic('warning');
       if (onOpenRechargeModal) onOpenRechargeModal();
       return;
     }
 
     // Deduct bet from bankroll immediately
-    const updatedBankroll = userProfile.bankroll - totalBetAmount;
+    const updatedBankroll = currentBankroll - totalBetAmount;
+    bankrollAfterBetRef.current = updatedBankroll;
+    activeBetsForRoundRef.current = [...placedBets];
     onUpdateProfile({ bankroll: updatedBankroll });
 
     // Save previous bets for Repeat Bet button
@@ -533,20 +545,28 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
     const updatedHistory = [newHistoryItem, ...spinHistory].slice(0, 40);
     setSpinHistory(updatedHistory);
 
-    // Settle bets
-    const settlement = settleRouletteBets(placedBets, winningNum);
+    // Settle bets using the exact placed bets snapshot
+    const roundBets = activeBetsForRoundRef.current.length > 0 ? activeBetsForRoundRef.current : placedBets;
+    const settlement = settleRouletteBets(roundBets, winningNum);
     setLastSettlement(settlement);
     setShowResultBanner(true);
 
     // Crupier speech reaction
-    const speech = getRouletteCrupierSpeech(userProfile.crupierPersonality, settlement);
+    const speech = getRouletteCrupierSpeech(userProfileRef.current.crupierPersonality, settlement);
     speakCrupier(speech);
 
     // Bankroll & Stats update
-    const finalBankroll = userProfile.bankroll + settlement.totalPayout;
-    const currentRouletteStats = userProfile.stats.roulette;
+    // If lost: settlement.totalPayout is 0, bankroll stays at bankrollAfterBetRef (permanent loss!)
+    // If won: settlement.totalPayout is (bet + netProfit), credited back to bankrollAfterBetRef
+    const finalBankroll = bankrollAfterBetRef.current + settlement.totalPayout;
+    const currentRouletteStats = userProfileRef.current.stats?.roulette || {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalProfit: 0,
+      bestWin: 0,
+    };
     const updatedStats = {
-      ...userProfile.stats,
+      ...userProfileRef.current.stats,
       roulette: {
         gamesPlayed: currentRouletteStats.gamesPlayed + 1,
         gamesWon: currentRouletteStats.gamesWon + (settlement.isWin ? 1 : 0),
@@ -557,7 +577,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
 
     onUpdateProfile({
       bankroll: finalBankroll,
-      weeklyScore: userProfile.weeklyScore + Math.max(0, settlement.netProfit),
+      weeklyScore: Math.max(0, userProfileRef.current.weeklyScore + Math.max(0, settlement.netProfit)),
       stats: updatedStats,
     });
 
@@ -590,7 +610,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
   const placeBet = (type: BetType, numbers: number[], positionKey: string) => {
     if (isSpinning) return;
 
-    if (userProfile.bankroll < totalBetAmount + selectedChipValue) {
+    if (userProfileRef.current.bankroll < totalBetAmount + selectedChipValue) {
       sound.playChip();
       triggerHaptic('warning');
       if (onOpenRechargeModal) onOpenRechargeModal();
@@ -651,7 +671,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
   const handleDoubleBets = () => {
     if (isSpinning || placedBets.length === 0) return;
     const additionalCost = totalBetAmount;
-    if (userProfile.bankroll < totalBetAmount + additionalCost) {
+    if (userProfileRef.current.bankroll < totalBetAmount + additionalCost) {
       triggerHaptic('warning');
       return;
     }
@@ -672,7 +692,7 @@ export const RouletteGame: React.FC<RouletteGameProps> = ({
   const handleRepeatBets = () => {
     if (isSpinning || previousRoundBets.length === 0) return;
     const needed = previousRoundBets.reduce((sum, b) => sum + b.amount, 0);
-    if (userProfile.bankroll < needed) {
+    if (userProfileRef.current.bankroll < needed) {
       triggerHaptic('warning');
       return;
     }

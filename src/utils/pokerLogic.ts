@@ -300,18 +300,19 @@ export function compareHandScores(scoreA: number[], scoreB: number[]): number {
  * 7-Card Poker Hand Evaluator (Finds the best 5-card hand out of up to 7 cards)
  */
 export function evaluateBestPokerHand(cards: StandardCard[]): HandEvaluation {
-  if (cards.length < 5) {
+  const safeCards = Array.isArray(cards) ? cards.filter((c): c is StandardCard => Boolean(c && c.rank)) : [];
+  if (safeCards.length < 5) {
     // If fewer than 5 cards (e.g. preflop 2 cards), evaluate baseline high card or pair
-    if (cards.length === 2) {
-      const v0 = getPokerRankValue(cards[0].rank);
-      const v1 = getPokerRankValue(cards[1].rank);
+    if (safeCards.length === 2) {
+      const v0 = getPokerRankValue(safeCards[0].rank);
+      const v1 = getPokerRankValue(safeCards[1].rank);
       if (v0 === v1) {
         return {
           tier: 1,
           tierName: 'Pareja',
           descr: `Pareja de ${getRankNameSpanish(v0, true)}`,
           score: [1, v0, 0, 0, 0, 0],
-          best5Cards: cards,
+          best5Cards: safeCards,
         };
       }
       const high = Math.max(v0, v1);
@@ -321,25 +322,25 @@ export function evaluateBestPokerHand(cards: StandardCard[]): HandEvaluation {
         tierName: 'Carta Alta',
         descr: `Carta Alta ${getRankNameSpanish(high)}`,
         score: [0, high, low, 0, 0, 0],
-        best5Cards: cards,
+        best5Cards: safeCards,
       };
     }
     return {
       tier: 0,
       tierName: 'Carta Alta',
-      descr: 'Esperando cartas comunitarias...',
+      descr: safeCards.length === 0 ? 'Sin cartas en mesa' : 'Esperando cartas comunitarias...',
       score: [0, 0, 0, 0, 0, 0],
-      best5Cards: cards,
+      best5Cards: safeCards,
     };
   }
 
   // If exactly 5 cards
-  if (cards.length === 5) {
-    return evaluate5Cards(cards);
+  if (safeCards.length === 5) {
+    return evaluate5Cards(safeCards);
   }
 
   // If 6 or 7 cards, find the best combination of 5
-  const combos = getCombinations(cards, 5);
+  const combos = getCombinations(safeCards, 5);
   let bestEval: HandEvaluation | null = null;
 
   for (const combo of combos) {
@@ -349,7 +350,15 @@ export function evaluateBestPokerHand(cards: StandardCard[]): HandEvaluation {
     }
   }
 
-  return bestEval!;
+  return (
+    bestEval || {
+      tier: 0,
+      tierName: 'Carta Alta',
+      descr: 'Carta Alta',
+      score: [0, 0, 0, 0, 0, 0],
+      best5Cards: safeCards.slice(0, 5),
+    }
+  );
 }
 
 /**
@@ -419,6 +428,10 @@ export function getAIDecision(params: {
 
   if (aiBankroll <= 0) {
     return { action: 'check', amount: 0 };
+  }
+
+  if (!aiHoleCards || aiHoleCards.length < 2 || !aiHoleCards[0] || !aiHoleCards[1]) {
+    return { action: currentBetToCall === 0 ? 'check' : 'fold', amount: 0 };
   }
 
   // Pre-flop strategy based on hole cards

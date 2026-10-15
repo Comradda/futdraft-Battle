@@ -211,12 +211,16 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
     return () => clearTimeout(t);
   }, [userProfile.crupierPersonality]);
 
+  // Shoe remaining cards counter (for live verifiable casino randomness)
+  const [shoeRemaining, setShoeRemaining] = useState<number>(311);
+
   // Draw card from shoe with auto-reshuffle
   const drawCard = (faceUp = true): StandardCard => {
     if (shoeRef.current.length < 52) {
       shoeRef.current = createShoe(6);
     }
     const card = shoeRef.current.pop()!;
+    setShoeRemaining(shoeRef.current.length);
     return { ...card, faceUp };
   };
 
@@ -2538,12 +2542,14 @@ export const BlackjackGame: React.FC<BlackjackGameProps> = ({
                 </span>
               ) : (
                 <span className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
-                  6 Barajas
+                  Zapato: {shoeRemaining}/312
                 </span>
               )}
             </div>
             <p className="text-[10px] text-neutral-400">
-              {isP2P ? `Conectado con ${remotePlayer?.name || 'tu Hermano'}` : 'Paga 3:2 • Crupier se planta en todo 17 (S17)'}
+              {isP2P
+                ? `Conectado con ${remotePlayer?.name || 'tu Hermano'} • Zapato: ${shoeRemaining}/312 cartas CSPRNG`
+                : `Paga 3:2 • S17 • Azar CSPRNG Verificado (${shoeRemaining} cartas)`}
             </p>
           </div>
         </div>

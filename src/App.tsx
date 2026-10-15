@@ -10,6 +10,7 @@ import { BlackjackGame } from './components/games/BlackjackGame';
 import { PokerGame } from './components/games/PokerGame';
 import { ConquianGame } from './components/games/ConquianGame';
 import { RouletteGame } from './components/games/RouletteGame';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Modals
 import { CustomizationModal } from './components/modals/CustomizationModal';
@@ -123,41 +124,49 @@ export function App() {
 
       {/* 2. Blackjack 21 Game */}
       {currentGame === 'blackjack' && (
-        <BlackjackGame
-          userProfile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={handleBackToLobby}
-          onOpenRechargeModal={() => setIsAdOpen(true)}
-        />
+        <ErrorBoundary fallbackTitle="Mesa de Blackjack 21" onBackToLobby={handleBackToLobby}>
+          <BlackjackGame
+            userProfile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            onBackToLobby={handleBackToLobby}
+            onOpenRechargeModal={() => setIsAdOpen(true)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* 3. Texas Hold'em Poker Game */}
       {currentGame === 'poker' && (
-        <PokerGame
-          userProfile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={handleBackToLobby}
-          onOpenRechargeModal={() => setIsAdOpen(true)}
-        />
+        <ErrorBoundary fallbackTitle="Mesa de Texas Hold'em" onBackToLobby={handleBackToLobby}>
+          <PokerGame
+            userProfile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            onBackToLobby={handleBackToLobby}
+            onOpenRechargeModal={() => setIsAdOpen(true)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* 4. Conquian Game */}
       {currentGame === 'conquian' && (
-        <ConquianGame
-          profile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={handleBackToLobby}
-        />
+        <ErrorBoundary fallbackTitle="Mesa de Conquián" onBackToLobby={handleBackToLobby}>
+          <ConquianGame
+            profile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            onBackToLobby={handleBackToLobby}
+          />
+        </ErrorBoundary>
       )}
 
       {/* 5. European Roulette Game */}
       {currentGame === 'roulette' && (
-        <RouletteGame
-          userProfile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onBackToLobby={handleBackToLobby}
-          onOpenRechargeModal={() => setIsAdOpen(true)}
-        />
+        <ErrorBoundary fallbackTitle="Mesa de Ruleta Europea" onBackToLobby={handleBackToLobby}>
+          <RouletteGame
+            userProfile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            onBackToLobby={handleBackToLobby}
+            onOpenRechargeModal={() => setIsAdOpen(true)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Global Modals */}

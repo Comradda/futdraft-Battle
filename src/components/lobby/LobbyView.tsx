@@ -3,14 +3,13 @@ import type { GameType, UserProfile } from '../../types/casino';
 import { formatMoney, canClaimDailyReward } from '../../utils/storage';
 import { sound } from '../../utils/audio';
 import { triggerHaptic } from '../../utils/haptics';
+import { PERSONALITY_CONFIGS } from '../../utils/crupierAI';
 import {
   Trophy,
   Settings,
   Plus,
-  Sparkles,
   Play,
   Flame,
-  Award,
   Users,
   Wifi,
   Coins,
@@ -18,6 +17,9 @@ import {
   CircleDot,
   Music,
   Gift,
+  ShieldCheck,
+  Radio,
+  ChevronRight,
 } from 'lucide-react';
 import { SpadeIcon, OroIcon } from '../common/CardView';
 
@@ -45,362 +47,524 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   isMultiplayerConnected = false,
 }) => {
   const [isMusicActive, setIsMusicActive] = useState(() => sound.isMusicPlaying());
+  const [activeCategory, setActiveCategory] = useState<'all' | 'cards' | 'roulette' | 'multiplayer'>('all');
   const canClaimDaily = canClaimDailyReward(profile);
 
-  const games: {
+  // Active dealer personality configuration
+  const currentDealerConfig = PERSONALITY_CONFIGS[profile.crupierPersonality] || PERSONALITY_CONFIGS.burlona;
+
+  interface CasinoGameTable {
     id: GameType;
+    category: 'cards' | 'roulette';
+    tableNumber: string;
     title: string;
     subtitle: string;
-    description: string;
+    tagline: string;
     badge: string;
-    badgeColor: string;
-    gradient: string;
-    border: string;
-    renderIcon: () => React.ReactNode;
+    badgeStyle: string;
+    dealerName: string;
+    dealerImage: string;
+    dealerRegion: string;
     minBet: number;
-  }[] = [
-    {
-      id: 'conquian',
-      title: 'Conquián Clásico',
-      subtitle: 'Baraja Española Tradicional',
-      description: 'El legendario juego de 40 cartas. Forma tercias y corridas hasta bajar 9 cartas y vencer al rival.',
-      badge: 'Mano a Mano',
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-      gradient: 'from-[#0b291e] via-[#061e16] to-[#0a0a0f]',
-      border: 'border-emerald-600/40 hover:border-emerald-400',
-      renderIcon: () => <OroIcon className="w-8 h-8 filter drop-shadow" />,
-      minBet: 25,
-    },
+    maxBet: number;
+    feltStyle: string;
+    borderColor: string;
+    specs: string[];
+    renderIcon: () => React.ReactNode;
+  }
+
+  const tables: CasinoGameTable[] = [
     {
       id: 'blackjack',
-      title: 'Blackjack 21 VIP',
-      subtitle: 'Mesa Estilo Las Vegas',
-      description: 'Supera al crupier sin exceder 21. Zapato de 6 barajas, opciones para doblar, dividir y cobro 3:2.',
-      badge: 'Pago 3:2',
-      badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-      gradient: 'from-[#0e1d38] via-[#091326] to-[#0a0a0f]',
-      border: 'border-blue-600/40 hover:border-blue-400',
-      renderIcon: () => <SpadeIcon className="w-8 h-8 text-blue-400 filter drop-shadow" />,
+      category: 'cards',
+      tableNumber: 'MESA BJ-01',
+      title: 'BLACKJACK 21 VIP',
+      subtitle: 'Zapato 6 Barajas • Estándar Las Vegas',
+      tagline: 'Crupier se planta en todo 17 • Azar CSPRNG Certificado',
+      badge: 'PAGO 3:2',
+      badgeStyle: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
+      dealerName: currentDealerConfig.name,
+      dealerImage: currentDealerConfig.image,
+      dealerRegion: currentDealerConfig.region,
       minBet: 10,
+      maxBet: 1000000,
+      feltStyle: 'from-[#0b1c2b] via-[#07131f] to-[#04090f]',
+      borderColor: 'border-blue-500/40 hover:border-blue-400',
+      specs: [
+        'Regla S17: Crupier se planta en todo 17',
+        'Opciones Doblar x2 y Dividir (Split)',
+        'Barajado físico de 6 barajas con corte real',
+        'Mesa individual o multijugador con tu hermano',
+      ],
+      renderIcon: () => <SpadeIcon className="w-6 h-6 text-amber-400" />,
     },
     {
       id: 'roulette',
-      title: 'Ruleta Europea',
-      subtitle: 'Rueda 37 Números (0-36)',
-      description: 'Giro balístico en Canvas 3D a 60 FPS. Apuestas directas a pleno (35:1), docenas, columnas, rojo y negro.',
-      badge: 'Física 3D Real',
-      badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      gradient: 'from-[#2e1d08] via-[#1c1205] to-[#0a0a0f]',
-      border: 'border-amber-600/40 hover:border-amber-400',
-      renderIcon: () => <CircleDot className="w-8 h-8 text-amber-400 animate-spin filter drop-shadow" />,
+      category: 'roulette',
+      tableNumber: 'MESA RL-02',
+      title: 'RULETA EUROPEA 3D',
+      subtitle: 'Rueda Francesa de 37 Casillas (0-36)',
+      tagline: 'Giro balístico en Canvas 60 FPS • Pleno 35:1',
+      badge: 'FÍSICA 3D REAL',
+      badgeStyle: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40',
+      dealerName: 'Valeria',
+      dealerImage: '/images/dealers/crupier_burlona.jpg',
+      dealerRegion: 'Monterrey, N.L.',
       minBet: 10,
+      maxBet: 1000000,
+      feltStyle: 'from-[#1a1205] via-[#100b03] to-[#050402]',
+      borderColor: 'border-amber-500/40 hover:border-amber-400',
+      specs: [
+        'Rueda balística con rebote físico y frenado suave',
+        'Apuesta a Pleno (35:1), Docenas y Columnas (2:1)',
+        'Penalización real: los tiros fallidos descuentan fichas',
+        'Historial de últimos 40 números con estadísticas de color',
+      ],
+      renderIcon: () => <CircleDot className="w-6 h-6 text-emerald-400" />,
+    },
+    {
+      id: 'conquian',
+      category: 'cards',
+      tableNumber: 'MESA CQ-03',
+      title: 'CONQUIÁN CLÁSICO',
+      subtitle: 'Baraja Española Real (40 Cartas)',
+      tagline: 'El juego tradicional mexicano • Paga directa de 9 cartas',
+      badge: 'TRADICIONAL',
+      badgeStyle: 'bg-amber-500/20 text-amber-300 border-amber-400/40',
+      dealerName: 'Elena',
+      dealerImage: '/images/dealers/crupier_amigable.jpg',
+      dealerRegion: 'El Bajío / Jalisco',
+      minBet: 25,
+      maxBet: 500000,
+      feltStyle: 'from-[#0b291a] via-[#061c12] to-[#030d08]',
+      borderColor: 'border-emerald-600/40 hover:border-emerald-400',
+      specs: [
+        'Baraja Española oficial: Oros, Copas, Espadas y Bastos',
+        'Formación de tercias y corridas con arrastre al tapiz',
+        'Victoria al bajar 9 cartas limpias',
+        'Multijugador en vivo en la misma mesa',
+      ],
+      renderIcon: () => <OroIcon className="w-6 h-6" />,
     },
     {
       id: 'poker',
-      title: 'Texas Hold\'em Poker',
-      subtitle: 'Duelo Mano a Mano',
-      description: 'Enfrentamiento de alta estrategia contra la banca. Flop, Turn y River con cálculo de pot odds y faroles.',
-      badge: 'Estrategia Pura',
-      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-      gradient: 'from-[#2e0912] via-[#1c050a] to-[#0a0a0f]',
-      border: 'border-rose-600/40 hover:border-rose-400',
-      renderIcon: () => <Layers className="w-8 h-8 text-rose-400 filter drop-shadow" />,
+      category: 'cards',
+      tableNumber: 'MESA PK-04',
+      title: "TEXAS HOLD'EM DUELO",
+      subtitle: 'Mano a Mano Heads-Up Sin Límite',
+      tagline: 'Preflop, Flop, Turn y River • Faroles y Pot Odds',
+      badge: 'SIN LÍMITES',
+      badgeStyle: 'bg-rose-500/20 text-rose-300 border-rose-400/40',
+      dealerName: 'Sarah',
+      dealerImage: '/images/dealers/crupier_neutral.jpg',
+      dealerRegion: 'Polanco VIP (CDMX)',
       minBet: 50,
+      maxBet: 2000000,
+      feltStyle: 'from-[#2b0811] via-[#1c0409] to-[#090204]',
+      borderColor: 'border-rose-600/40 hover:border-rose-400',
+      specs: [
+        'Duelo mano a mano contra la banca de alta inteligencia',
+        '5 cartas comunitarias oficiales con control de subidas',
+        'Evaluador WSOP oficial de manos con desempate de kicker',
+        'Motor blindado sin caídas ni pantallas negras',
+      ],
+      renderIcon: () => <Layers className="w-6 h-6 text-rose-400" />,
     },
   ];
 
-  const handleGameClick = (game: GameType) => {
+  const filteredTables = tables.filter((table) => {
+    if (activeCategory === 'cards') return table.category === 'cards';
+    if (activeCategory === 'roulette') return table.category === 'roulette';
+    if (activeCategory === 'multiplayer') return table.id === 'blackjack' || table.id === 'conquian';
+    return true;
+  });
+
+  const handleEnterTable = (game: GameType) => {
     sound.playCardDeal();
     triggerHaptic('medium');
     onSelectGame(game);
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#07070a] overflow-y-auto pb-24 safe-top select-none">
-      {/* Top iOS App Bar */}
-      <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between sticky top-0 z-30 bg-[#07070a]/90 backdrop-blur-md">
-        {/* User Profile Pill */}
+    <div className="w-full h-full flex flex-col bg-[#07070a] overflow-y-auto pb-24 safe-top select-none font-sans text-white">
+      {/* ------------------------------------------------------------- */}
+      {/* 1. TOP CASINO VIP HEADER */}
+      {/* ------------------------------------------------------------- */}
+      <header className="px-4 py-3 border-b border-amber-500/20 sticky top-0 z-30 bg-[#09090e]/95 backdrop-blur-xl shadow-lg flex items-center justify-between">
+        {/* VIP Player Identity Card */}
         <button
           onClick={() => {
             sound.playChip();
             triggerHaptic('light');
             onOpenProfile();
           }}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+          className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-neutral-900/90 border border-amber-500/30 hover:border-amber-400/60 transition-all cursor-pointer shadow-inner active:scale-95"
         >
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-neutral-950 font-black text-xs shadow-inner overflow-hidden border border-amber-400/40 shrink-0">
-            {profile.photoUrl ? (
-              <img src={profile.photoUrl} alt={profile.name} className="w-full h-full object-cover" />
-            ) : (
-              profile.name.charAt(0).toUpperCase()
-            )}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 via-amber-600 to-yellow-700 p-0.5 shadow-md flex items-center justify-center shrink-0">
+            <div className="w-full h-full rounded-full bg-neutral-950 overflow-hidden flex items-center justify-center text-amber-400 font-black text-xs">
+              {profile.photoUrl ? (
+                <img src={profile.photoUrl} alt={profile.name} className="w-full h-full object-cover" />
+              ) : (
+                profile.name.charAt(0).toUpperCase()
+              )}
+            </div>
           </div>
           <div className="text-left">
-            <div className="text-[11px] font-bold text-white leading-tight max-w-[85px] truncate">
+            <div className="text-xs font-black text-white leading-tight max-w-[95px] truncate">
               {profile.name}
             </div>
-            <div className="text-[9px] text-amber-400 font-semibold leading-tight">
-              Socio VIP
+            <div className="text-[9px] font-bold text-amber-400 tracking-wider uppercase flex items-center gap-1">
+              <span>👑</span> SOCIO VIP
             </div>
           </div>
         </button>
 
-        {/* Chips Balance & Multiplayer Link */}
-        <div className="flex items-center gap-1.5">
-          {/* 2-Player Button */}
-          <button
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('medium');
-              onOpenMultiplayer();
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-black transition-all cursor-pointer shadow-md ${
-              isMultiplayerConnected
-                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 animate-pulse'
-                : 'bg-gradient-to-r from-amber-600/30 to-amber-500/10 border-amber-500/40 text-amber-300 hover:border-amber-400'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">{isMultiplayerConnected ? 'Mesa 2P Activa' : '2 Jugadores'}</span>
-          </button>
-
-          {/* Chips Balance Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-neutral-900 border border-amber-500/30">
-            <Coins className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-amber-400 font-black text-xs font-mono">
-              {formatMoney(profile.bankroll)}
-            </span>
+        {/* Casino Cashier & Actions */}
+        <div className="flex items-center gap-2">
+          {/* Bankroll / Cashier Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-900 to-amber-950/40 border border-amber-500/40 shadow-md">
+            <Coins className="w-4 h-4 text-amber-400" />
+            <div className="text-right">
+              <span className="text-[9px] block text-neutral-400 uppercase font-bold leading-none">Saldo</span>
+              <span className="text-xs font-black font-mono text-amber-300 leading-tight">
+                {formatMoney(profile.bankroll)}
+              </span>
+            </div>
             <button
               onClick={() => {
                 sound.playChip();
                 triggerHaptic('medium');
                 onOpenAds();
               }}
-              title="Obtener fichas de cortesía"
-              className="w-4.5 h-4.5 rounded-full bg-amber-400 text-neutral-950 flex items-center justify-center font-black hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow"
+              title="Cajero / Recargar fichas"
+              className="ml-1 px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-neutral-950 font-black text-[10px] uppercase tracking-wider shadow cursor-pointer active:scale-95 transition-transform flex items-center gap-0.5"
             >
               <Plus className="w-3 h-3 stroke-[3]" />
+              <span className="hidden sm:inline">Cajero</span>
             </button>
           </div>
 
-          {/* Daily Reward Button */}
-          <button
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('medium');
-              onOpenDailyReward();
-            }}
-            title="Recompensa Diaria"
-            className={`relative p-2 rounded-full border transition-all cursor-pointer ${
-              canClaimDaily
-                ? 'bg-gradient-to-r from-amber-500/30 to-yellow-500/30 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] animate-pulse'
-                : 'bg-white/5 border-white/10 text-neutral-400 hover:text-amber-300'
-            }`}
-          >
-            <Gift className="w-4 h-4" />
-            {canClaimDaily && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-neutral-950 animate-ping" />
-            )}
-          </button>
-
-          {/* Quick Header Actions */}
-          <button
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('light');
-              onOpenLeaderboard();
-            }}
-            className="p-2 rounded-full bg-white/5 border border-white/10 text-amber-400 hover:bg-white/10 transition-all cursor-pointer"
-          >
-            <Trophy className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              triggerHaptic('light');
-              const active = sound.toggleCasinoMusic();
-              setIsMusicActive(active);
-            }}
-            title={isMusicActive ? 'Pausar música casino lounge' : 'Música VIP Lounge (Vegas / Caliente)'}
-            className={`p-2 rounded-full border transition-all cursor-pointer ${
-              isMusicActive
-                ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse'
-                : 'bg-white/5 border-white/10 text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <Music className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('light');
-              onOpenCustomization();
-            }}
-            className="p-2 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-all cursor-pointer"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* Hero Banner with Multiplayer Callout */}
-      <section className="px-4 pt-3.5 pb-2">
-        <div className="relative rounded-3xl p-5 bg-gradient-to-r from-[#1f1505] via-[#150e26] to-[#0c0c12] border border-amber-500/30 shadow-xl overflow-hidden">
-          <div className="absolute top-0 right-0 w-44 h-44 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="relative z-10 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
-                  Gran Casino Imperial
-                </span>
-              </div>
-              <h2 className="text-xl font-black text-white tracking-tight">
-                Salón Principal
-              </h2>
-              <p className="text-xs text-neutral-300 mt-1 max-w-[240px] leading-relaxed">
-                {profile.crupierPersonality === 'burlona' && '«¿Listo para jugar o vas a quedarte mirando las fichas?»'}
-                {profile.crupierPersonality === 'desafiante' && '«Los grandes apostadores triunfan en mi mesa. Demuéstralo.»'}
-                {profile.crupierPersonality === 'amigable' && '«¡Bienvenido de nuevo! La mesa está servida y la suerte a tu favor.»'}
-                {profile.crupierPersonality === 'neutral' && '«Hagan sus apuestas, señores. Mesa lista y barajas preparadas.»'}
-              </p>
-            </div>
-
-            {/* Quick 2-player badge action */}
+          {/* Quick Toolbar */}
+          <div className="flex items-center gap-1">
+            {/* Daily Gift Button */}
             <button
               onClick={() => {
                 sound.playChip();
                 triggerHaptic('medium');
-                onOpenMultiplayer();
+                onOpenDailyReward();
               }}
-              className="flex flex-col items-center gap-1 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-400/40 text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all shadow-lg"
+              title="Bono Diario"
+              className={`p-2 rounded-xl border transition-all cursor-pointer relative ${
+                canClaimDaily
+                  ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] animate-pulse'
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
+              }`}
             >
-              <Wifi className="w-5 h-5 text-amber-400 animate-pulse" />
-              <span className="text-[10px] font-black tracking-tight">Mesa 2P</span>
-              <span className="text-[8px] px-1 rounded bg-amber-400/20 text-amber-300 font-bold">En Vivo</span>
+              <Gift className="w-4 h-4" />
+              {canClaimDaily && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-neutral-950 animate-ping" />
+              )}
+            </button>
+
+            {/* Jazz Music Toggle */}
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                const active = sound.toggleCasinoMusic();
+                setIsMusicActive(active);
+              }}
+              title={isMusicActive ? 'Silenciar música Jazz Lounge' : 'Activar música Casino Lounge'}
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                isMusicActive
+                  ? 'bg-amber-500/20 border-amber-400/60 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Music className={`w-4 h-4 ${isMusicActive ? 'animate-pulse' : ''}`} />
+            </button>
+
+            {/* Leaderboard */}
+            <button
+              onClick={() => {
+                sound.playChip();
+                triggerHaptic('light');
+                onOpenLeaderboard();
+              }}
+              title="Ranking de Ganadores"
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-amber-400 hover:bg-white/10 transition-all cursor-pointer"
+            >
+              <Trophy className="w-4 h-4" />
+            </button>
+
+            {/* Settings */}
+            <button
+              onClick={() => {
+                sound.playChip();
+                triggerHaptic('light');
+                onOpenCustomization();
+              }}
+              title="Personalización del Casino"
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-all cursor-pointer"
+            >
+              <Settings className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      </header>
 
-          {/* Tournament strip */}
-          <div
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('light');
-              onOpenLeaderboard();
-            }}
-            className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-neutral-300 cursor-pointer hover:text-white"
-          >
-            <div className="flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-semibold text-white">Torneo Semanal:</span>
-              <span className="text-amber-400 font-bold">$100,000 MXN en Premios</span>
-            </div>
-            <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded-full">
-              Ver Ranking &rarr;
-            </span>
-          </div>
+      {/* ------------------------------------------------------------- */}
+      {/* 2. LIVE MARQUEE TICKER (CASINO ATMOSPHERE) */}
+      {/* ------------------------------------------------------------- */}
+      <div className="bg-[#0f0c05] border-b border-amber-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] overflow-hidden">
+        <div className="flex items-center gap-2 text-amber-300 font-bold whitespace-nowrap overflow-hidden">
+          <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30 uppercase font-black tracking-wider">
+            <Radio className="w-2.5 h-2.5 animate-pulse" /> EN DIRECTO
+          </span>
+          <span className="text-neutral-400 hidden sm:inline">•</span>
+          <span className="text-neutral-200">
+            Regla Internacional S17 • Azar CSPRNG de Mazo Completo • Crupiers con Identidad Mexicana
+          </span>
+        </div>
 
-          {/* Daily Reward Strip */}
-          <div
-            onClick={() => {
-              sound.playChip();
-              triggerHaptic('medium');
-              onOpenDailyReward();
-            }}
-            className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs text-neutral-300 cursor-pointer hover:text-white"
-          >
-            <div className="flex items-center gap-1.5">
-              <Gift className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
-              <span className="font-semibold text-white">Bono Diario:</span>
-              <span className="text-amber-400 font-bold">
-                {canClaimDaily ? '¡Reclama tu premio hoy! (Hasta $5,000)' : `Racha Día ${profile.dailyStreak || 1} Reclamada`}
-              </span>
+        {/* 2-Player Status Pill */}
+        <button
+          onClick={() => {
+            sound.playChip();
+            triggerHaptic('medium');
+            onOpenMultiplayer();
+          }}
+          className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black cursor-pointer transition-all ${
+            isMultiplayerConnected
+              ? 'bg-emerald-500/20 border border-emerald-400 text-emerald-300 animate-pulse'
+              : 'bg-amber-500/10 border border-amber-400/40 text-amber-300 hover:bg-amber-500/20'
+          }`}
+        >
+          <Wifi className="w-3 h-3" />
+          <span>{isMultiplayerConnected ? 'Mesa 2P Conectada' : 'Jugar con Hermano (2P)'}</span>
+        </button>
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 3. VIP CLUB REWARDS BANNER */}
+      {/* ------------------------------------------------------------- */}
+      <section className="px-4 pt-3 pb-2">
+        <div className="rounded-3xl bg-gradient-to-r from-[#17120a] via-[#120e06] to-[#0a0804] border border-amber-500/30 p-4 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-amber-400 text-xs font-black tracking-widest uppercase">
+                  SALÓN VIP LAS VEGAS
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-[9px] font-bold text-amber-300 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-amber-400" /> Azar Criptográfico
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                Elige tu Mesa y Desafía al Crupier
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Crupier activo hoy:{' '}
+                <b className="text-amber-300 font-semibold">{currentDealerConfig.name}</b> ({currentDealerConfig.region})
+              </p>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              canClaimDaily
-                ? 'bg-amber-400 text-neutral-950 font-black animate-pulse'
-                : 'bg-white/10 text-neutral-400'
-            }`}>
-              {canClaimDaily ? 'Reclamar' : 'Ver Racha'} &rarr;
-            </span>
+
+            {/* Quick Action Badges */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  sound.playChip();
+                  triggerHaptic('medium');
+                  onOpenDailyReward();
+                }}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl border text-xs font-black cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  canClaimDaily
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-neutral-950 border-amber-300 shadow-lg shadow-amber-500/20'
+                    : 'bg-neutral-900 border-white/10 text-neutral-300 hover:text-white'
+                }`}
+              >
+                <Gift className="w-4 h-4" />
+                <span>{canClaimDaily ? 'Bono Disponible' : `Racha Día ${profile.dailyStreak || 1}`}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playChip();
+                  triggerHaptic('light');
+                  onOpenLeaderboard();
+                }}
+                className="px-3.5 py-2 rounded-xl bg-neutral-900 border border-white/10 hover:border-amber-400/40 text-xs font-bold text-amber-300 cursor-pointer flex items-center justify-center gap-1.5 transition-all active:scale-95"
+              >
+                <Flame className="w-4 h-4 text-amber-400" />
+                <span className="hidden xs:inline">Ranking</span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Games Grid */}
-      <section className="px-4 py-2 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
-          Mesas Disponibles
-        </h3>
+      {/* ------------------------------------------------------------- */}
+      {/* 4. TABLE CATEGORY SELECTOR */}
+      {/* ------------------------------------------------------------- */}
+      <section className="px-4 py-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveCategory('all');
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer shrink-0 ${
+              activeCategory === 'all'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-neutral-950 shadow-md shadow-amber-500/20'
+                : 'bg-neutral-900/80 border border-white/10 text-neutral-400 hover:text-white'
+            }`}
+          >
+            Todas las Mesas (4)
+          </button>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {games.map(game => (
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveCategory('cards');
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeCategory === 'cards'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-neutral-950 shadow-md shadow-amber-500/20'
+                : 'bg-neutral-900/80 border border-white/10 text-neutral-400 hover:text-white'
+            }`}
+          >
+            Juegos de Cartas
+          </button>
+
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveCategory('roulette');
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeCategory === 'roulette'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-neutral-950 shadow-md shadow-amber-500/20'
+                : 'bg-neutral-900/80 border border-white/10 text-neutral-400 hover:text-white'
+            }`}
+          >
+            Ruleta Francesa
+          </button>
+
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveCategory('multiplayer');
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              activeCategory === 'multiplayer'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-neutral-950 shadow-md shadow-amber-500/20'
+                : 'bg-neutral-900/80 border border-white/10 text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Mano a Mano (2P)</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 5. CASINO LIVE TABLES GRID */}
+      {/* ------------------------------------------------------------- */}
+      <section className="px-4 py-2 space-y-3.5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredTables.map((table) => (
             <div
-              key={game.id}
-              onClick={() => handleGameClick(game.id)}
-              className={`group relative rounded-3xl p-4.5 bg-gradient-to-br ${game.gradient} border ${game.border} 
-                shadow-lg hover:shadow-2xl transition-all duration-200 active:scale-[0.98] cursor-pointer overflow-hidden`}
+              key={table.id}
+              className={`rounded-3xl bg-gradient-to-b ${table.feltStyle} border ${table.borderColor} shadow-2xl p-4.5 transition-all duration-200 hover:scale-[1.01] flex flex-col justify-between relative overflow-hidden group`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  {game.renderIcon()}
-                  <div>
-                    <h4 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
-                      {game.title}
-                    </h4>
-                    <span className="text-[11px] text-neutral-400 font-medium">
-                      {game.subtitle}
-                    </span>
-                  </div>
+              {/* Table Top Ribbon */}
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                    MESA ABIERTA
+                  </span>
+                  <span className="text-white/20 text-xs">•</span>
+                  <span className="text-[10px] font-mono font-bold text-neutral-400">
+                    {table.tableNumber}
+                  </span>
                 </div>
 
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${game.badgeColor}`}>
-                  {game.badge}
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${table.badgeStyle}`}>
+                  {table.badge}
                 </span>
               </div>
 
-              <p className="text-xs text-neutral-300/80 mb-3.5 line-clamp-2 leading-relaxed">
-                {game.description}
-              </p>
+              {/* Main Table Info with Crupier Avatar */}
+              <div className="flex items-start gap-3.5 mb-3">
+                {/* Dealer Photo Avatar */}
+                <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-amber-400/40 shadow-md shrink-0 bg-neutral-950">
+                  <img
+                    src={table.dealerImage}
+                    alt={table.dealerName}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute bottom-0 inset-x-0 bg-black/70 backdrop-blur-sm text-[8px] font-bold text-center text-amber-300 py-0.5 truncate px-1">
+                    {table.dealerName}
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-between pt-2.5 border-t border-white/10">
-                <span className="text-[11px] font-mono text-neutral-400">
-                  Apuesta Mín: <b className="text-amber-400">${game.minBet}</b>
-                </span>
-                <span className="flex items-center gap-1 text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
-                  Entrar a Mesa <Play className="w-3 h-3 fill-current" />
-                </span>
+                {/* Title & Tagline */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {table.renderIcon()}
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight group-hover:text-amber-300 transition-colors truncate">
+                      {table.title}
+                    </h3>
+                  </div>
+                  <div className="text-xs text-amber-400/90 font-medium">
+                    {table.subtitle}
+                  </div>
+                  <div className="text-[11px] text-neutral-400 mt-0.5 leading-snug">
+                    {table.tagline}
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Specifications List */}
+              <div className="bg-black/30 rounded-2xl p-2.5 mb-3.5 border border-white/5 space-y-1">
+                {table.specs.map((spec, sIdx) => (
+                  <div key={sIdx} className="flex items-center gap-1.5 text-[11px] text-neutral-300">
+                    <span className="text-amber-400 text-xs">◆</span>
+                    <span>{spec}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Table Footer: Limits & Join Button */}
+              <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-neutral-400 block leading-none">
+                    Límites de Apuesta
+                  </span>
+                  <span className="text-xs font-mono font-bold text-neutral-200">
+                    ${table.minBet} - ${formatMoney(table.maxBet)}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => handleEnterTable(table.id)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Sentarse en Mesa</span>
+                  <ChevronRight className="w-4 h-4 stroke-[3]" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Free chips ad callout */}
-      {profile.bankroll < 200 && (
-        <section className="px-4 pt-2">
-          <div
-            onClick={onOpenAds}
-            className="p-3.5 rounded-2xl bg-gradient-to-r from-[#2a1b05] to-[#1a1205] border border-amber-400/50 flex items-center justify-between cursor-pointer active:scale-98 transition-transform shadow-lg"
-          >
-            <div className="flex items-center gap-2.5">
-              <Coins className="w-6 h-6 text-amber-400" />
-              <div>
-                <div className="text-xs font-bold text-amber-300">Banca baja de fichas</div>
-                <div className="text-[10px] text-neutral-300">
-                  Mira un anuncio de 5 segundos para recibir +$500 pesos de cortesía.
-                </div>
-              </div>
-            </div>
-            <button className="px-3 py-1.5 rounded-lg bg-amber-400 text-neutral-950 text-xs font-black shadow">
-              Recargar
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* Bottom iOS Floating Dock Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 px-6 py-2.5 bg-[#07070a]/95 backdrop-blur-xl border-t border-white/10 flex items-center justify-around safe-bottom">
+      {/* ------------------------------------------------------------- */}
+      {/* 6. BOTTOM IOS CASINO DOCK NAVIGATION */}
+      {/* ------------------------------------------------------------- */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 px-6 py-2 bg-[#09090e]/95 backdrop-blur-xl border-t border-amber-500/20 flex items-center justify-around safe-bottom shadow-2xl">
         <button
           onClick={() => {
             sound.playChip();
@@ -408,8 +572,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           }}
           className="flex flex-col items-center gap-0.5 text-amber-400 cursor-pointer"
         >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Mesas</span>
+          <Play className="w-5 h-5 fill-current" />
+          <span className="text-[10px] font-black uppercase tracking-wider">Mesas</span>
         </button>
 
         <button
@@ -418,10 +582,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             triggerHaptic('light');
             onOpenLeaderboard();
           }}
-          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer"
+          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer transition-colors"
         >
           <Trophy className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Torneo</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Ranking</span>
         </button>
 
         <button
@@ -430,10 +594,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             triggerHaptic('medium');
             onOpenMultiplayer();
           }}
-          className="flex flex-col items-center gap-0.5 text-amber-300 hover:text-white cursor-pointer"
+          className="flex flex-col items-center gap-0.5 text-amber-300 hover:text-white cursor-pointer transition-colors"
         >
           <Users className="w-5 h-5" />
-          <span className="text-[10px] font-bold">2 Jugadores</span>
+          <span className="text-[10px] font-black uppercase tracking-wider">2 Jugadores</span>
         </button>
 
         <button
@@ -442,10 +606,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             triggerHaptic('medium');
             onOpenAds();
           }}
-          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer"
+          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer transition-colors"
         >
-          <Award className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Fichas</span>
+          <Coins className="w-5 h-5" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Cajero</span>
         </button>
 
         <button
@@ -454,10 +618,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             triggerHaptic('light');
             onOpenCustomization();
           }}
-          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer"
+          className="flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white cursor-pointer transition-colors"
         >
           <Settings className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Ajustes</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Ajustes</span>
         </button>
       </nav>
     </div>

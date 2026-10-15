@@ -26,7 +26,16 @@ export function loadUserProfile(): UserProfile {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...INITIAL_USER, ...parsed };
+      return {
+        ...INITIAL_USER,
+        ...parsed,
+        stats: {
+          conquian: { ...INITIAL_USER.stats.conquian, ...(parsed.stats?.conquian || {}) },
+          blackjack: { ...INITIAL_USER.stats.blackjack, ...(parsed.stats?.blackjack || {}) },
+          roulette: { ...INITIAL_USER.stats.roulette, ...(parsed.stats?.roulette || {}) },
+          poker: { ...INITIAL_USER.stats.poker, ...(parsed.stats?.poker || {}) },
+        },
+      };
     }
   } catch (e) {
     console.error('Error loading profile', e);

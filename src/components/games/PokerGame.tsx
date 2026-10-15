@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
@@ -43,7 +43,28 @@ export const PokerGame: React.FC<PokerGameProps> = ({
 }) => {
   // Game States
   const [phase, setPhase] = useState<PokerPhase>('preflop');
-  const [deck, setDeck] = useState<StandardCard[]>([]);
+  const [_deck, setDeck] = useState<StandardCard[]>([]);
+
+  // Persistent deck and profile refs
+  const deckRef = useRef<StandardCard[]>([]);
+  const userProfileRef = useRef(userProfile);
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
+
+  // Safe drawer that guarantees a valid StandardCard
+  const drawCardFromDeck = (): StandardCard => {
+    if (deckRef.current.length < 5) {
+      deckRef.current = createPokerDeck();
+    }
+    const card = deckRef.current.pop();
+    if (!card) {
+      const fresh = createPokerDeck();
+      deckRef.current = fresh;
+      return fresh.pop()!;
+    }
+    return card;
+  };
 
   // Cards
   const [playerHoleCards, setPlayerHoleCards] = useState<StandardCard[]>([]);
@@ -114,7 +135,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
 
   // Starts a completely new heads-up hand
   const startNewHand = () => {
-    if (userProfile.bankroll < BIG_BLIND) {
+    if (userProfileRef.current.bankroll < BIG_BLIND) {
       if (onOpenRechargeModal) onOpenRechargeModal();
       return;
     }
@@ -123,18 +144,18 @@ export const PokerGame: React.FC<PokerGameProps> = ({
       setAiBankroll(1000);
     }
 
-    const freshDeck = createPokerDeck();
+    deckRef.current = createPokerDeck();
 
-    const p1 = freshDeck.pop()!;
-    const a1 = freshDeck.pop()!;
-    const p2 = freshDeck.pop()!;
-    const a2 = freshDeck.pop()!;
+    const p1 = drawCardFromDeck();
+    const a1 = drawCardFromDeck();
+    const p2 = drawCardFromDeck();
+    const a2 = drawCardFromDeck();
 
     setPlayerHoleCards([p1, p2]);
     setAiHoleCards([a1, a2]);
     setCommunityCards([]);
     setAiCardsRevealed(false);
-    setDeck(freshDeck);
+    setDeck(deckRef.current);
     setWinnerNotice(null);
     setShowRaiseSlider(false);
     setAiStatusMessage('');
@@ -408,9 +429,9 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     if (phase === 'preflop') {
       sound.playCardDeal();
       triggerHaptic('medium');
-      const c1 = deck.pop()!;
-      const c2 = deck.pop()!;
-      const c3 = deck.pop()!;
+      const c1 = drawCardFromDeck();
+      const c2 = drawCardFromDeck();
+      const c3 = drawCardFromDeck();
       setCommunityCards([c1, c2, c3]);
       setPhase('flop');
       triggerCrupierEvent('poker_flop');
@@ -418,7 +439,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     } else if (phase === 'flop') {
       sound.playCardDeal();
       triggerHaptic('medium');
-      const c4 = deck.pop()!;
+      const c4 = drawCardFromDeck();
       const newComms = [...communityCards, c4];
       setCommunityCards(newComms);
       setPhase('turn');
@@ -427,7 +448,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     } else if (phase === 'turn') {
       sound.playCardDeal();
       triggerHaptic('medium');
-      const c5 = deck.pop()!;
+      const c5 = drawCardFromDeck();
       const newComms = [...communityCards, c5];
       setCommunityCards(newComms);
       setPhase('river');
@@ -518,18 +539,24 @@ export const PokerGame: React.FC<PokerGameProps> = ({
   };
 
   const recordGameStats = (netProfit: number) => {
-    const pStats = { ...userProfile.stats.poker };
+    const currentStats = userProfileRef.current.stats?.poker || {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalProfit: 0,
+      bestWin: 0,
+    };
+    const pStats = { ...currentStats };
     pStats.gamesPlayed += 1;
     if (netProfit > 0) pStats.gamesWon += 1;
     pStats.totalProfit += netProfit;
     if (netProfit > pStats.bestWin) pStats.bestWin = netProfit;
 
-    const newScore = Math.max(0, userProfile.weeklyScore + (netProfit > 0 ? netProfit * 2 : 0));
+    const newScore = Math.max(0, userProfileRef.current.weeklyScore + (netProfit > 0 ? netProfit * 2 : 0));
 
     onUpdateProfile({
       weeklyScore: newScore,
       stats: {
-        ...userProfile.stats,
+        ...userProfileRef.current.stats,
         poker: pStats,
       },
     });
