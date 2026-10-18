@@ -1,5 +1,0 @@
-name = "casino-imperial-ios"
-compatibility_date = "2026-10-01"
-
-[site]
-bucket = "./dist"
