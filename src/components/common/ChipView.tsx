@@ -58,6 +58,48 @@ export const ChipView: React.FC<ChipViewProps> = ({
           accent: 'bg-pink-300',
           text: 'text-white',
         };
+      case 1000:
+        return {
+          bg: 'from-amber-500 via-yellow-500 to-amber-800',
+          border: 'border-amber-200',
+          accent: 'bg-yellow-200',
+          text: 'text-neutral-950',
+        };
+      case 5000:
+        return {
+          bg: 'from-rose-600 via-red-600 to-rose-950',
+          border: 'border-rose-300',
+          accent: 'bg-rose-200',
+          text: 'text-white',
+        };
+      case 25000:
+        return {
+          bg: 'from-cyan-600 via-blue-600 to-cyan-950',
+          border: 'border-cyan-300',
+          accent: 'bg-cyan-200',
+          text: 'text-white',
+        };
+      case 100000:
+        return {
+          bg: 'from-emerald-500 via-green-600 to-teal-950',
+          border: 'border-emerald-300',
+          accent: 'bg-emerald-200',
+          text: 'text-white',
+        };
+      case 500000:
+        return {
+          bg: 'from-fuchsia-600 via-purple-600 to-purple-950',
+          border: 'border-fuchsia-300',
+          accent: 'bg-fuchsia-200',
+          text: 'text-white',
+        };
+      case 1000000:
+        return {
+          bg: 'from-yellow-300 via-amber-400 to-yellow-600',
+          border: 'border-yellow-100',
+          accent: 'bg-white',
+          text: 'text-neutral-950',
+        };
       default:
         return {
           bg: 'from-amber-600 to-amber-800',
@@ -69,6 +111,12 @@ export const ChipView: React.FC<ChipViewProps> = ({
   };
 
   const colors = getColors();
+
+  const formatChipText = (val: number) => {
+    if (val >= 1000000) return `$${val / 1000000}M`;
+    if (val >= 1000) return `$${val / 1000}K`;
+    return `$${val}`;
+  };
 
   const sizeClasses = {
     sm: 'w-8 h-8 text-[10px]',
@@ -97,15 +145,15 @@ export const ChipView: React.FC<ChipViewProps> = ({
         onDragStart={handleDragStart}
         onClick={handleClick}
         className={`relative ${sizeClasses} rounded-full bg-gradient-to-br ${colors.bg} 
-          border-2 border-dashed ${colors.border} shadow-lg flex items-center justify-center 
+          border-2 border-dashed ${colors.border} chip-3d-token flex items-center justify-center 
           transition-transform active:scale-95 cursor-grab active:cursor-grabbing font-bold ${colors.text}
-          ${isSelected ? 'ring-3 ring-amber-400 -translate-y-2 scale-110 shadow-amber-500/50' : 'hover:scale-105'}`}
+          ${isSelected ? 'ring-3 ring-[#00e701] -translate-y-2 scale-110 shadow-[#00e701]/40' : 'hover:scale-105'}`}
       >
         {/* Outer dash pattern */}
-        <div className="absolute inset-1 rounded-full border border-white/20 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-1 rounded-full border border-white/25 flex items-center justify-center pointer-events-none">
           {/* Inner ring */}
-          <div className="w-[70%] h-[70%] rounded-full bg-black/40 border border-white/30 flex items-center justify-center">
-            <span className="font-extrabold tracking-tight">${value}</span>
+          <div className="w-[72%] h-[72%] rounded-full bg-black/45 border border-white/30 flex items-center justify-center shadow-inner">
+            <span className="font-extrabold tracking-tight">{formatChipText(value)}</span>
           </div>
         </div>
       </button>

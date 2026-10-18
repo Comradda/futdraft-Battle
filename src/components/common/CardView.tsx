@@ -173,12 +173,14 @@ export const StandardCardView: React.FC<{
   selected?: boolean;
   highlighted?: boolean;
 }> = ({ card, backTheme = 'dragon_gold', onClick, className = '', selected = false, highlighted = false }) => {
+  if (!card) return null;
+
   if (card.faceUp === false) {
     return (
       <div
         onClick={onClick}
-        className={`w-14 h-20 sm:w-16 sm:h-24 transition-transform active:scale-95 cursor-pointer ${
-          selected ? '-translate-y-2 ring-2 ring-amber-400' : ''
+        className={`w-14 h-20 sm:w-16 sm:h-24 transition-transform active:scale-95 cursor-pointer card-3d-physical rounded-lg ${
+          selected ? '-translate-y-2.5 ring-2 ring-amber-400' : ''
         } ${className}`}
       >
         <CardBack theme={backTheme} />
@@ -187,7 +189,7 @@ export const StandardCardView: React.FC<{
   }
 
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
-  const colorClass = isRed ? 'text-[#c41e3a]' : 'text-[#1a1a1a]';
+  const colorClass = isRed ? 'text-[#c41e3a]' : 'text-[#141619]';
 
   const renderSuitIcon = (size = 'w-3 h-3 sm:w-3.5 sm:h-3.5') => {
     switch (card.suit) {
@@ -207,33 +209,31 @@ export const StandardCardView: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-[#fafafa] border border-neutral-300 shadow-md p-1.5 
-        flex flex-col justify-between transition-transform active:scale-95 cursor-pointer select-none relative
-        ${highlighted ? 'ring-2 ring-emerald-400 border-emerald-400 shadow-emerald-400/40' : ''}
-        ${selected ? '-translate-y-2.5 ring-2 ring-amber-400 shadow-amber-400/40 scale-105' : ''} ${className}`}
-      style={{
-        boxShadow: selected
-          ? '0 10px 20px -3px rgba(245, 158, 11, 0.4)'
-          : '0 3px 6px -1px rgba(0, 0, 0, 0.3), inset 0 0 4px rgba(0,0,0,0.05)',
-      }}
+      className={`w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-gradient-to-b from-[#ffffff] via-[#f8fafc] to-[#eef2f6] border border-neutral-300/90 p-1.5 
+        flex flex-col justify-between cursor-pointer select-none relative overflow-hidden card-3d-physical
+        ${highlighted ? 'ring-2 ring-emerald-400 border-emerald-400' : ''}
+        ${selected ? '-translate-y-3 ring-2 ring-amber-400 scale-105' : ''} ${className}`}
     >
+      {/* 3D Specular Gloss Reflection Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none" />
+
       {/* Top Left Index */}
-      <div className={`leading-none flex flex-col items-center self-start ${colorClass}`}>
-        <span className="text-xs sm:text-sm font-extrabold tracking-tight">{card.rank}</span>
+      <div className={`leading-none flex flex-col items-center self-start z-10 ${colorClass}`}>
+        <span className="text-xs sm:text-sm font-black tracking-tight">{card.rank}</span>
         <div className="mt-0.5">{renderSuitIcon('w-2.5 h-2.5 sm:w-3 sm:h-3')}</div>
       </div>
 
       {/* Center Artwork / Pip */}
-      <div className={`flex flex-col items-center justify-center my-auto ${colorClass}`}>
+      <div className={`flex flex-col items-center justify-center my-auto z-10 ${colorClass}`}>
         {isCourtCard ? (
           <div className="flex flex-col items-center">
             {renderSuitIcon('w-5 h-5 sm:w-6 sm:h-6')}
-            <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 opacity-80">
+            <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 px-1 rounded bg-black/5">
               {card.rank === 'K' ? 'REY' : card.rank === 'Q' ? 'REINA' : 'JOTA'}
             </span>
           </div>
         ) : card.rank === 'A' ? (
-          <div className="flex flex-col items-center scale-125">
+          <div className="flex flex-col items-center scale-125 drop-shadow-sm">
             {renderSuitIcon('w-6 h-6 sm:w-7 sm:h-7')}
           </div>
         ) : (
@@ -242,8 +242,8 @@ export const StandardCardView: React.FC<{
       </div>
 
       {/* Bottom Right Index (Rotated) */}
-      <div className={`leading-none flex flex-col items-center self-end rotate-180 ${colorClass}`}>
-        <span className="text-xs sm:text-sm font-extrabold tracking-tight">{card.rank}</span>
+      <div className={`leading-none flex flex-col items-center self-end rotate-180 z-10 ${colorClass}`}>
+        <span className="text-xs sm:text-sm font-black tracking-tight">{card.rank}</span>
         <div className="mt-0.5">{renderSuitIcon('w-2.5 h-2.5 sm:w-3 sm:h-3')}</div>
       </div>
     </div>
@@ -262,11 +262,13 @@ export const SpanishCardView: React.FC<{
   selected?: boolean;
   highlighted?: boolean;
 }> = ({ card, backTheme = 'dragon_gold', onClick, className = '', selected = false, highlighted = false }) => {
+  if (!card) return null;
+
   if (card.faceUp === false) {
     return (
       <div
         onClick={onClick}
-        className={`w-14 h-20 sm:w-16 sm:h-24 transition-transform active:scale-95 cursor-pointer ${
+        className={`w-14 h-20 sm:w-16 sm:h-24 transition-transform active:scale-95 cursor-pointer card-3d-physical rounded-lg ${
           selected ? '-translate-y-3 ring-2 ring-amber-400' : ''
         } ${className}`}
       >
@@ -313,18 +315,16 @@ export const SpanishCardView: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-[#fffdfa] border-2 shadow-md p-1.5 
-        flex flex-col justify-between transition-transform active:scale-95 cursor-pointer select-none relative
-        ${highlighted ? 'ring-2 ring-emerald-400 border-emerald-400 shadow-emerald-400/50' : 'border-neutral-300'}
-        ${selected ? '-translate-y-3 ring-2 ring-amber-400 shadow-amber-400/50 scale-105' : ''} ${className}`}
-      style={{
-        boxShadow: selected
-          ? '0 12px 24px -4px rgba(245, 158, 11, 0.45)'
-          : '0 3px 6px -1px rgba(0, 0, 0, 0.25), inset 0 0 6px rgba(180, 150, 100, 0.1)',
-      }}
+      className={`w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-gradient-to-b from-[#fffdfa] via-[#faf6ee] to-[#f3ece0] border-2 p-1.5 
+        flex flex-col justify-between cursor-pointer select-none relative overflow-hidden card-3d-physical
+        ${highlighted ? 'ring-2 ring-emerald-400 border-emerald-400' : 'border-neutral-300'}
+        ${selected ? '-translate-y-3 ring-2 ring-amber-400 scale-105' : ''} ${className}`}
     >
+      {/* 3D Specular Gloss Reflection */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/35 to-transparent pointer-events-none" />
+
       {/* Inner Spanish border frame */}
-      <div className="absolute inset-1 rounded border border-neutral-300/60 pointer-events-none" />
+      <div className="absolute inset-1 rounded border border-amber-900/20 pointer-events-none" />
 
       {/* Top Left Corner */}
       <div className={`leading-none flex flex-col items-center self-start ${theme.text} z-10`}>

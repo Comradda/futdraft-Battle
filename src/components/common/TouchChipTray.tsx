@@ -241,11 +241,11 @@ export const TouchChipTray: React.FC<TouchChipTrayProps> = ({ onAddChip, disable
             >
               <div
                 className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-br ${color.bg} 
-                  border-2 border-dashed ${color.border} shadow-[0_4px_12px_rgba(0,0,0,0.5)] 
-                  flex items-center justify-center font-black ${color.text} text-xs sm:text-sm hover:scale-105`}
+                  border-2 border-dashed ${color.border} chip-3d-token 
+                  flex items-center justify-center font-black ${color.text} text-xs sm:text-sm hover:scale-105 transition-transform`}
               >
                 {/* Inner Ring */}
-                <div className="w-[74%] h-[74%] rounded-full bg-black/40 border border-white/20 flex items-center justify-center shadow-inner">
+                <div className="w-[74%] h-[74%] rounded-full bg-black/45 border border-white/25 flex items-center justify-center shadow-inner">
                   <span className="tracking-tight font-black">{label}</span>
                 </div>
               </div>

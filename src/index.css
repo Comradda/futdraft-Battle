@@ -5,89 +5,220 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     user-select: none;
+    box-sizing: border-box;
   }
 
-  html, body, #root {
+  html,
+  body,
+  #root {
     margin: 0;
     padding: 0;
     width: 100%;
     max-width: 100vw;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: -webkit-fill-available;
     overflow: hidden;
     overflow-x: hidden !important;
-    background-color: #08080c;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    background-color: #0b0e14;
     color: #f3f4f6;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Safe area insets for iPhone notch / dynamic island & home indicator */
+  /* Safe area insets for iPhone Notch / Dynamic Island & Home Indicator */
   .safe-top {
     padding-top: env(safe-area-inset-top, 0px);
   }
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
   }
 }
 
-/* Card 3D Flip Effects */
+/* ==========================================
+   3D HARDWARE ACCELERATION & PERSPECTIVE
+   ========================================== */
 .perspective-1000 {
   perspective: 1000px;
+  -webkit-perspective: 1000px;
 }
+
+.perspective-1200 {
+  perspective: 1200px;
+  -webkit-perspective: 1200px;
+}
+
 .transform-style-3d {
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
+
 .backface-hidden {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
 
-/* Table Felt Theme Gradients */
+/* 3D Table Felt Tilt for Realistic Studio Camera Angle */
+.table-3d-stage {
+  perspective: 1100px;
+  -webkit-perspective: 1100px;
+}
+
+.table-3d-surface {
+  transform: rotateX(8deg) translateZ(0);
+  transform-style: preserve-3d;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+
+/* Physical 3D Card Extrusion & Shadow */
+.card-3d-physical {
+  transform: translate3d(0, 0, 0);
+  box-shadow:
+    0 1px 0 #d4d4d8,
+    0 2px 0 #a1a1aa,
+    0 3px 0 #71717a,
+    0 8px 18px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+}
+
+.card-3d-physical:active {
+  transform: translate3d(0, -4px, 12px) scale(0.97);
+}
+
+/* Physical 3D Casino Chip Cylinder Bevel */
+.chip-3d-token {
+  transform: translate3d(0, 0, 0);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.65),
+    0 7px 14px rgba(0, 0, 0, 0.6),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.15s ease;
+}
+
+.chip-3d-token:active {
+  transform: translate3d(0, 2px, 0);
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.7),
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45);
+}
+
+/* ==========================================
+   3D STUDIO TABLE FELT THEMES
+   ========================================== */
 .table-felt-emerald {
-  background: radial-gradient(circle at 50% 35%, #0b5336 0%, #063824 55%, #031c12 100%);
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(16, 185, 129, 0.22) 0%, transparent 60%),
+    radial-gradient(circle at 50% 40%, #0d5c3b 0%, #063824 55%, #03170e 100%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.75);
 }
+
 .table-felt-royal_blue {
-  background: radial-gradient(circle at 50% 35%, #153e75 0%, #0b254a 55%, #051226 100%);
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(59, 130, 246, 0.22) 0%, transparent 60%),
+    radial-gradient(circle at 50% 40%, #154582 0%, #0b254a 55%, #040e1f 100%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.75);
 }
+
 .table-felt-crimson {
-  background: radial-gradient(circle at 50% 35%, #66101f 0%, #400913 55%, #1f0409 100%);
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(230, 0, 18, 0.24) 0%, transparent 60%),
+    radial-gradient(circle at 50% 40%, #751223 0%, #400913 55%, #170307 100%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.75);
 }
+
 .table-felt-obsidian {
-  background: radial-gradient(circle at 50% 35%, #23272e 0%, #15181d 55%, #0a0b0d 100%);
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(148, 163, 184, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 50% 40%, #1e2430 0%, #11151d 55%, #07090d 100%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.85);
 }
+
 .table-felt-black_gold {
-  background: radial-gradient(circle at 50% 35%, #181507 0%, #0d0b04 50%, #020202 100%);
-  box-shadow: inset 0 0 100px rgba(245, 158, 11, 0.18), inset 0 0 35px rgba(250, 204, 21, 0.3);
+  background:
+    radial-gradient(ellipse at 50% 25%, rgba(250, 204, 21, 0.22) 0%, transparent 58%),
+    radial-gradient(circle at 50% 40%, #1c1808 0%, #0d0b04 52%, #030303 100%);
+  box-shadow:
+    inset 0 0 100px rgba(245, 158, 11, 0.18),
+    inset 0 0 35px rgba(250, 204, 21, 0.28);
   border-color: rgba(250, 204, 21, 0.5) !important;
 }
+
 .table-felt-black_gold .drop-zone-glow {
   box-shadow: 0 0 30px rgba(250, 204, 21, 0.45);
 }
 
-/* Glassmorphism for iOS mobile cards */
+/* ==========================================
+   RAINBET & CALIENTE MX UI SURFACES
+   ========================================== */
+.rainbet-card {
+  background: linear-gradient(180deg, #161d2a 0%, #101520 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.rainbet-card:hover {
+  border-color: rgba(0, 231, 1, 0.4);
+  box-shadow: 0 14px 30px -5px rgba(0, 0, 0, 0.65), 0 0 20px rgba(0, 231, 1, 0.12);
+}
+
+.caliente-accent-gradient {
+  background: linear-gradient(135deg, #e60012 0%, #b8000e 100%);
+}
+
+.rainbet-green-btn {
+  background: linear-gradient(180deg, #00e701 0%, #00b801 100%);
+  color: #051b05;
+  box-shadow: 0 3px 0 #007a00, 0 6px 16px rgba(0, 231, 1, 0.3);
+}
+
+.rainbet-green-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #007a00, 0 3px 8px rgba(0, 231, 1, 0.25);
+}
+
+/* Glassmorphism for mobile overlays */
 .glass-panel {
-  background: rgba(18, 20, 29, 0.75);
+  background: rgba(17, 22, 34, 0.82);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .glass-pill {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* Custom subtle scrollbars */
+/* Hide scrollbars on horizontal mobile swipe containers */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle custom scrollbars for vertical containers */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 9999px;
 }
 
@@ -96,5 +227,8 @@
   box-shadow: 0 0 15px rgba(245, 158, 11, 0.45);
 }
 .glow-green {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 15px rgba(0, 231, 1, 0.4);
+}
+.glow-crimson {
+  box-shadow: 0 0 15px rgba(230, 0, 18, 0.45);
 }
