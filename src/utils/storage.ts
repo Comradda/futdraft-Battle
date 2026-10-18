@@ -131,24 +131,10 @@ export function claimDailyReward(profile: UserProfile): {
   };
 }
 
-// Generate realistic dynamic weekly tournament leaderboard including the brother/peer
+// Returns the tournament leaderboard containing ONLY real players (user and brother/friends)
 export function getWeeklyLeaderboard(currentUser: UserProfile): LeaderboardPlayer[] {
-  const bots: Omit<LeaderboardPlayer, 'rank' | 'isCurrentUser'>[] = [
-    { id: 'bot_1', name: 'Don Aurelio', avatar: 'AU', weeklyScore: 48500, badge: 'Maestro' },
-    { id: 'bot_2', name: 'La Matadora', avatar: 'MT', weeklyScore: 34200, badge: 'En Racha' },
-    { id: 'bot_3', name: 'El As del Norte', avatar: 'AS', weeklyScore: 26800, badge: 'Experto' },
-    { id: 'bot_4', name: 'Sultán Poker', avatar: 'SL', weeklyScore: 19400 },
-    { id: 'bot_5', name: 'Sofia Blackjack', avatar: 'SF', weeklyScore: 14750 },
-    { id: 'bot_6', name: 'Capi Conquián', avatar: 'CP', weeklyScore: 11200 },
-    { id: 'bot_7', name: 'Lucky Strike', avatar: 'LK', weeklyScore: 8900 },
-    { id: 'bot_8', name: 'Ruleta Imperial', avatar: 'RL', weeklyScore: 6300 },
-    { id: 'bot_9', name: 'Gato Negro', avatar: 'GN', weeklyScore: 4100 },
-    { id: 'bot_10', name: 'El Principiante', avatar: 'PR', weeklyScore: 1500 },
-  ];
-
   const peer = getPeerPlayer();
   const allPlayers: Omit<LeaderboardPlayer, 'rank'>[] = [
-    ...bots,
     {
       id: currentUser.id,
       name: currentUser.name,
@@ -160,14 +146,14 @@ export function getWeeklyLeaderboard(currentUser: UserProfile): LeaderboardPlaye
     },
   ];
 
-  // If connected with brother/peer, include him in the tournament rankings!
+  // If brother/peer has connected, include his real score and profile
   if (peer && peer.id && peer.id !== currentUser.id) {
     allPlayers.push({
       id: peer.id,
       name: peer.name || 'Hermano VIP',
       avatar: peer.avatar || 'HER',
       photoUrl: peer.photoUrl,
-      weeklyScore: peer.weeklyScore || Math.max(1200, currentUser.weeklyScore - 150),
+      weeklyScore: peer.weeklyScore ?? 1000,
       isCurrentUser: false,
       isPeer: true,
       badge: 'Hermano',

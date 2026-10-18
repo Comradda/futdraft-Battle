@@ -134,7 +134,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                     </div>
                     {player.rank === 1 && (
                       <span className="text-[10px] text-yellow-400 font-bold flex items-center gap-0.5">
-                        <Flame className="w-3 h-3 fill-current" /> Líder de la Semana
+                        <Flame className="w-3 h-3 fill-current" /> Líder Actual
                       </span>
                     )}
                   </div>
@@ -149,6 +149,18 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
               </div>
             );
           })}
+
+          {players.length === 1 && (
+            <div className="p-3.5 rounded-2xl bg-[#141923] border border-[#252f42] text-center space-y-1.5 mt-2">
+              <div className="text-xs font-black text-amber-300 flex items-center justify-center gap-1.5">
+                <span>👥</span>
+                <span>Compite contra tu hermano</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Sin necesidad de crear cuenta ni iniciar sesión: conéctense en la sala de <strong>2 Jugadores</strong> y sus progresos y fotos se guardarán automáticamente en esta tabla.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer Prizes */}

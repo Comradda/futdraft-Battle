@@ -86,6 +86,16 @@ export const PokerGame: React.FC<PokerGameProps> = ({
   const [currentTurn, setCurrentTurn] = useState<'player' | 'ai' | 'none'>('none');
   const [aiThinking, setAiThinking] = useState<boolean>(false);
   const [aiStatusMessage, setAiStatusMessage] = useState<string>('');
+  const [streetActions, setStreetActions] = useState<number>(0);
+  const streetActionsRef = useRef<number>(0);
+  streetActionsRef.current = streetActions;
+  const aiTurnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (aiTurnTimeoutRef.current) clearTimeout(aiTurnTimeoutRef.current);
+    };
+  }, []);
 
   // Raise / Bet customizer UI
   const [showRaiseSlider, setShowRaiseSlider] = useState<boolean>(false);
@@ -183,15 +193,20 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     setPlayerRoundBet(pBet);
     setAiRoundBet(aBet);
     setCurrentRoundHighestBet(highest);
+    setStreetActions(0);
+    streetActionsRef.current = 0;
     setPhase('preflop');
 
     sound.playCardDeal();
     triggerHaptic('medium');
     triggerCrupierEvent('game_start', { betAmount: startingPot });
 
+    // In Heads-up preflop, the Small Blind acts FIRST!
     if (nextPlayerIsDealer) {
+      // Player is Small Blind -> Player acts first
       setCurrentTurn('player');
     } else {
+      // AI is Small Blind -> AI acts first
       setCurrentTurn('ai');
       triggerAITurn({
         phase: 'preflop',
@@ -217,10 +232,11 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     highestBet: number;
     currentAiBankroll: number;
   }) => {
+    if (aiTurnTimeoutRef.current) clearTimeout(aiTurnTimeoutRef.current);
     setAiThinking(true);
     setAiStatusMessage('Pensando...');
 
-    setTimeout(() => {
+    aiTurnTimeoutRef.current = setTimeout(() => {
       const neededToCall = Math.max(0, context.highestBet - context.aiBet);
 
       const decision = getAIDecision({
@@ -246,6 +262,9 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     _reason?: string
   ) => {
     const toCall = Math.max(0, currentRoundHighestBet - aiRoundBet);
+    const nextActions = streetActionsRef.current + 1;
+    streetActionsRef.current = nextActions;
+    setStreetActions(nextActions);
 
     if (action === 'fold') {
       setAiStatusMessage('No va (Fold)');
@@ -259,7 +278,8 @@ export const PokerGame: React.FC<PokerGameProps> = ({
       sound.playChip();
       triggerHaptic('light');
 
-      if (playerRoundBet === currentRoundHighestBet && isPlayerDealer) {
+      // Both players have checked if at least 2 actions occurred and bets match
+      if (nextActions >= 2 && playerRoundBet === aiRoundBet) {
         advanceStreet();
       } else {
         setCurrentTurn('player');
@@ -277,7 +297,12 @@ export const PokerGame: React.FC<PokerGameProps> = ({
       sound.playChip();
       triggerHaptic('medium');
 
-      advanceStreet();
+      // In preflop: if AI was Small Blind and calls Big Blind (1st action), player (Big Blind) gets to check or raise!
+      if (nextActions >= 2 && newAiBet === playerRoundBet) {
+        advanceStreet();
+      } else {
+        setCurrentTurn('player');
+      }
       return;
     }
 
@@ -304,6 +329,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
   // Player action: FOLD (No ir)
   const handlePlayerFold = () => {
     if (currentTurn !== 'player') return;
+    if (aiTurnTimeoutRef.current) clearTimeout(aiTurnTimeoutRef.current);
     triggerHaptic('medium');
     setCurrentTurn('none');
     triggerCrupierEvent('poker_fold');
@@ -321,6 +347,7 @@ export const PokerGame: React.FC<PokerGameProps> = ({
 
   // AI folds
   const handleAIFold = () => {
+    if (aiTurnTimeoutRef.current) clearTimeout(aiTurnTimeoutRef.current);
     setCurrentTurn('none');
     triggerCrupierEvent('poker_win', { handName: playerEvaluation?.descr });
 
@@ -353,7 +380,11 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     sound.playChip();
     triggerHaptic('light');
 
-    if (aiRoundBet === currentRoundHighestBet && !isPlayerDealer) {
+    const nextActions = streetActionsRef.current + 1;
+    streetActionsRef.current = nextActions;
+    setStreetActions(nextActions);
+
+    if (nextActions >= 2 && aiRoundBet === playerRoundBet) {
       advanceStreet();
     } else {
       setCurrentTurn('ai');
@@ -383,7 +414,26 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     sound.playChip();
     triggerHaptic('medium');
 
-    advanceStreet();
+    const nextActions = streetActionsRef.current + 1;
+    streetActionsRef.current = nextActions;
+    setStreetActions(nextActions);
+
+    // In preflop: if Player was Small Blind and called Big Blind (1st action), AI (Big Blind) gets to check or raise!
+    if (nextActions >= 2 && newPlayerBet === aiRoundBet) {
+      advanceStreet();
+    } else {
+      setCurrentTurn('ai');
+      triggerAITurn({
+        phase,
+        aiHole: aiHoleCards,
+        community: communityCards,
+        currentPot: pot + toPay,
+        aiBet: aiRoundBet,
+        playerBet: newPlayerBet,
+        highestBet: currentRoundHighestBet,
+        currentAiBankroll: aiBankroll,
+      });
+    }
   };
 
   // Player action: BET / RAISE
@@ -397,6 +447,10 @@ export const PokerGame: React.FC<PokerGameProps> = ({
     setPlayerRoundBet(raiseTotal);
     setCurrentRoundHighestBet(raiseTotal);
     setShowRaiseSlider(false);
+
+    const nextActions = streetActionsRef.current + 1;
+    streetActionsRef.current = nextActions;
+    setStreetActions(nextActions);
 
     sound.playChip();
     triggerHaptic('heavy');
@@ -421,9 +475,12 @@ export const PokerGame: React.FC<PokerGameProps> = ({
 
   // Advance to next street: Preflop -> Flop -> Turn -> River -> Showdown
   const advanceStreet = () => {
+    if (aiTurnTimeoutRef.current) clearTimeout(aiTurnTimeoutRef.current);
     setPlayerRoundBet(0);
     setAiRoundBet(0);
     setCurrentRoundHighestBet(0);
+    setStreetActions(0);
+    streetActionsRef.current = 0;
     setAiStatusMessage('');
 
     if (phase === 'preflop') {
@@ -432,10 +489,11 @@ export const PokerGame: React.FC<PokerGameProps> = ({
       const c1 = drawCardFromDeck();
       const c2 = drawCardFromDeck();
       const c3 = drawCardFromDeck();
-      setCommunityCards([c1, c2, c3]);
+      const comms = [c1, c2, c3];
+      setCommunityCards(comms);
       setPhase('flop');
       triggerCrupierEvent('poker_flop');
-      startStreetTurn('flop', [c1, c2, c3]);
+      startStreetTurn('flop', comms);
     } else if (phase === 'flop') {
       sound.playCardDeal();
       triggerHaptic('medium');
@@ -460,6 +518,9 @@ export const PokerGame: React.FC<PokerGameProps> = ({
   };
 
   const startStreetTurn = (nextPhase: PokerPhase, comms: StandardCard[]) => {
+    // In Heads-up, Big Blind (non-dealer) acts FIRST postflop!
+    // isPlayerDealer === true -> Player is Dealer -> AI is Big Blind -> AI acts first.
+    // isPlayerDealer === false -> AI is Dealer -> Player is Big Blind -> Player acts first.
     if (!isPlayerDealer) {
       setCurrentTurn('player');
     } else {
