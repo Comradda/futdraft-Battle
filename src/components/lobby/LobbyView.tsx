@@ -81,6 +81,27 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   const tables: CasinoGameTable[] = [
     {
+      id: 'futdraft',
+      category: 'cards',
+      tableNumber: 'ESTADIO FD-27 • EA SPORTS FC 27',
+      title: 'FUTDRAFT AI & TACTICS',
+      shortTitle: 'FUTDRAFT FC 27',
+      subtitle: 'Auto-Battler + Batalla Táctica RPG • Ligas Reales',
+      rtp: 'FC 27 DB',
+      badge: 'NUEVO • E-SPORTS',
+      badgeColor: 'bg-[#00e701]/20 text-[#00e701] border-[#00e701]/60',
+      accentGlow: 'group-hover:border-[#00e701]/80',
+      cardGradient: 'from-[#072618] via-[#071824] to-[#050911]',
+      dealerName: 'DT Táctico IA',
+      dealerImage: currentDealerConfig.image,
+      dealerRegion: 'Champions Arena',
+      minBet: 50,
+      maxBet: 2000000,
+      supports2P: true,
+      features: ['Base de Datos FC 27', 'Siluetas Pro', 'Duelo Táctico', '1P / 2P Hermano'],
+      renderIcon: () => <Trophy className="w-5 h-5 text-[#00e701]" />,
+    },
+    {
       id: 'blackjack',
       category: 'cards',
       tableNumber: 'MESA BJ-01 • MONTECARLO',
@@ -394,11 +415,19 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           {/* Action Buttons Row */}
           <div className="relative z-20 flex flex-wrap items-center gap-2 mt-4">
             <button
-              onClick={() => handleEnterTable('blackjack')}
+              onClick={() => handleEnterTable('futdraft')}
               className="px-4 py-2 rounded-xl rainbet-green-btn text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform shadow-lg"
             >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>FUTDRAFT AI & TACTICS (FC 27)</span>
+            </button>
+
+            <button
+              onClick={() => handleEnterTable('blackjack')}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform shadow-lg"
+            >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Jugar Blackjack 21</span>
+              <span>Blackjack 21</span>
             </button>
 
             <button

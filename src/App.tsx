@@ -6,6 +6,7 @@ import { triggerHaptic } from './utils/haptics';
 
 // Views and Games
 import { LobbyView } from './components/lobby/LobbyView';
+import { FutDraftGame } from './components/futdraft/FutDraftGame';
 import { BlackjackGame } from './components/games/BlackjackGame';
 import { PokerGame } from './components/games/PokerGame';
 import { ConquianGame } from './components/games/ConquianGame';
@@ -23,7 +24,7 @@ import { multiplayer } from './utils/multiplayer';
 
 export function App() {
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
-  const [currentGame, setCurrentGame] = useState<GameType>('lobby');
+  const [currentGame, setCurrentGame] = useState<GameType>('futdraft');
 
   // Modals state
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
@@ -120,6 +121,17 @@ export function App() {
           onOpenMultiplayer={() => setIsMultiplayerOpen(true)}
           isMultiplayerConnected={isMultiplayerConnected}
         />
+      )}
+
+      {/* 1.5 FUTDRAFT AI & TACTICS (EA SPORTS FC 27) */}
+      {currentGame === 'futdraft' && (
+        <ErrorBoundary fallbackTitle="FUTDRAFT AI & TACTICS (FC 27)" onBackToLobby={handleBackToLobby}>
+          <FutDraftGame
+            userProfile={profile}
+            onUpdateProfile={handleUpdateProfile}
+            onBackToLobby={handleBackToLobby}
+          />
+        </ErrorBoundary>
       )}
 
       {/* 2. Blackjack 21 Game */}

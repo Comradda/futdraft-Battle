@@ -1,4 +1,4 @@
-export type GameType = 'lobby' | 'conquian' | 'blackjack' | 'roulette' | 'poker';
+export type GameType = 'lobby' | 'futdraft' | 'conquian' | 'blackjack' | 'roulette' | 'poker';
 
 export type PersonalityType = 'neutral' | 'burlona' | 'desafiante' | 'amigable';
 
@@ -38,6 +38,7 @@ export interface UserProfile {
   soundEnabled: boolean;
   hapticsEnabled: boolean;
   stats: {
+    futdraft?: UserStats;
     conquian: UserStats;
     blackjack: UserStats;
     roulette: UserStats;

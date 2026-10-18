@@ -284,6 +284,7 @@ export const MultiplayerModal: React.FC<MultiplayerModalProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
+                  { id: 'futdraft', name: 'FUTDRAFT FC 27', desc: 'Tácticas & Auto-Battler' },
                   { id: 'blackjack', name: 'Blackjack 21', desc: 'Misma mesa vs Crupier' },
                   { id: 'conquian', name: 'Conquián Clásico', desc: 'Mano a mano 40 cartas' },
                   { id: 'roulette', name: 'Ruleta Europea', desc: 'Mismo paño y rueda' },

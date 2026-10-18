@@ -14,6 +14,7 @@ export const INITIAL_USER: UserProfile = {
   soundEnabled: true,
   hapticsEnabled: true,
   stats: {
+    futdraft: { gamesPlayed: 0, gamesWon: 0, totalProfit: 0, bestWin: 0 },
     conquian: { gamesPlayed: 0, gamesWon: 0, totalProfit: 0, bestWin: 0 },
     blackjack: { gamesPlayed: 0, gamesWon: 0, totalProfit: 0, bestWin: 0 },
     roulette: { gamesPlayed: 0, gamesWon: 0, totalProfit: 0, bestWin: 0 },
@@ -30,6 +31,7 @@ export function loadUserProfile(): UserProfile {
         ...INITIAL_USER,
         ...parsed,
         stats: {
+          futdraft: { ...INITIAL_USER.stats.futdraft!, ...(parsed.stats?.futdraft || {}) },
           conquian: { ...INITIAL_USER.stats.conquian, ...(parsed.stats?.conquian || {}) },
           blackjack: { ...INITIAL_USER.stats.blackjack, ...(parsed.stats?.blackjack || {}) },
           roulette: { ...INITIAL_USER.stats.roulette, ...(parsed.stats?.roulette || {}) },
