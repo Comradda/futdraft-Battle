@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Check, Layers, Palette, RotateCcw, Sparkles, X } from 'lucide-react'
 import { FILTER_PRESETS } from '../engine/shaders'
-import { useEditorStore } from '../store/useEditorStore'
+import { resolveVisualTargetClip, useEditorStore } from '../store/useEditorStore'
 import type { FilterCategory } from '../types/editor'
 
 type CategoryTab = 'all' | FilterCategory
@@ -19,6 +19,7 @@ export const FilterGalleryDrawer: React.FC = () => {
   const activeDrawer = useEditorStore((s) => s.activeDrawer)
   const clips = useEditorStore((s) => s.clips)
   const selectedClipId = useEditorStore((s) => s.selectedClipId)
+  const playheadTime = useEditorStore((s) => s.playheadTime)
   const setActiveDrawer = useEditorStore((s) => s.setActiveDrawer)
   const updateClip = useEditorStore((s) => s.updateClip)
   const addAdjustmentClip = useEditorStore((s) => s.addAdjustmentClip)
@@ -30,8 +31,7 @@ export const FilterGalleryDrawer: React.FC = () => {
   if (activeDrawer !== 'filters') return null
 
   const targetClip =
-    clips.find((c) => c.id === selectedClipId) ??
-    clips.find((c) => c.trackType === 'video') ??
+    resolveVisualTargetClip(clips, selectedClipId, playheadTime) ??
     clips[0]
 
   if (!targetClip) return null

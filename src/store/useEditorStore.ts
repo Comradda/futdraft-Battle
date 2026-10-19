@@ -667,6 +667,64 @@ export function computeRemappedSourceTime(
 }
 
 /**
+ * Resolves the active visual clip (video, pip, adjustment) for color grading, filters, and quality shaders,
+ * guaranteeing audio or non-visual clips never hijack visual editing drawers.
+ */
+export function resolveVisualTargetClip(
+  clips: TimelineClip[],
+  selectedClipId: string | null,
+  playheadTime: number
+): TimelineClip | null {
+  // 1. If user explicitly selected a visual clip (video, pip, or adjustment), check it
+  if (selectedClipId) {
+    const sel = clips.find((c) => c.id === selectedClipId)
+    if (
+      sel &&
+      (sel.trackType === 'video' ||
+        sel.trackType === 'pip' ||
+        sel.trackType === 'adjustment')
+    ) {
+      return sel
+    }
+  }
+
+  // 2. Active video clip under the playhead
+  const activeVideo = clips.find(
+    (c) =>
+      c.trackType === 'video' &&
+      playheadTime >= c.startTime &&
+      playheadTime <= c.startTime + c.duration
+  )
+  if (activeVideo) return activeVideo
+
+  // 3. Active adjustment layer at playheadTime
+  const activeAdj = clips.find(
+    (c) =>
+      c.trackType === 'adjustment' &&
+      playheadTime >= c.startTime &&
+      playheadTime <= c.startTime + c.duration
+  )
+  if (activeAdj) return activeAdj
+
+  // 4. Active PIP clip at playheadTime
+  const activePip = clips.find(
+    (c) =>
+      c.trackType === 'pip' &&
+      playheadTime >= c.startTime &&
+      playheadTime <= c.startTime + c.duration
+  )
+  if (activePip) return activePip
+
+  // 5. Fallback to first video clip, adjustment clip, or pip clip
+  return (
+    clips.find((c) => c.trackType === 'video') ??
+    clips.find((c) => c.trackType === 'adjustment') ??
+    clips.find((c) => c.trackType === 'pip') ??
+    null
+  )
+}
+
+/**
  * Computes interpolated transform, opacity, and filterIntensity for a clip at timelineTime,
  * combining Keyframes (♦) + Entry/Exit/Combo Animations.
  */
@@ -1587,9 +1645,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       nextZoom = Math.min(timelineZoom, 28)
     }
 
+    const hasExistingVideo = baseClips.some((c) => c.trackType === 'video')
+    const nextSelectedId =
+      trackType === 'audio' && hasExistingVideo
+        ? get().selectedClipId ?? baseClips.find((c) => c.trackType === 'video')?.id ?? newId
+        : newId
+
     set({
       clips: [...baseClips, newClip],
-      selectedClipId: newId,
+      selectedClipId: nextSelectedId,
       playheadTime: Number(computedStart.toFixed(2)),
       isPlaying: false,
       timelineZoom: nextZoom,
@@ -1654,19 +1718,34 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addAdjustmentClip: () => {
-    const { clips, playheadTime, getTotalDuration } = get()
+    const { clips, getTotalDuration } = get()
     get().pushHistory()
+    const totalDur = Math.max(4, getTotalDuration())
+
+    const existingAdj = clips.find((c) => c.trackType === 'adjustment')
+    if (existingAdj) {
+      set({
+        clips: clips.map((c) =>
+          c.id === existingAdj.id
+            ? { ...c, startTime: 0, duration: Math.max(c.duration, totalDur) }
+            : c
+        ),
+        selectedClipId: existingAdj.id,
+        activeDrawer: 'quality_pro',
+      })
+      return existingAdj
+    }
+
     const newId = `clip_adj_${Date.now()}`
-    const dur = Math.max(3, getTotalDuration() - playheadTime)
     const newClip: TimelineClip = {
       id: newId,
       trackId: 'track_adjustment',
       trackType: 'adjustment',
       name: 'Capa de Ajuste Pro',
       mediaUrl: 'adjustment://layer',
-      sourceDuration: dur,
-      startTime: Number(playheadTime.toFixed(2)),
-      duration: Number(dur.toFixed(2)),
+      sourceDuration: totalDur,
+      startTime: 0,
+      duration: totalDur,
       sourceStartOffset: 0,
       isFrozen: false,
       thumbnails: [],

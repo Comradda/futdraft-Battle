@@ -36,7 +36,11 @@ import {
   Zap,
 } from 'lucide-react'
 import { analyzeClipBeats } from '../engine/audioEngine'
-import { DEFAULT_TRANSFORM, useEditorStore } from '../store/useEditorStore'
+import {
+  DEFAULT_TRANSFORM,
+  resolveVisualTargetClip,
+  useEditorStore,
+} from '../store/useEditorStore'
 import type {
   AspectRatio,
   BlendMode,
@@ -209,12 +213,11 @@ export const ContextualBottomDock: React.FC = () => {
   const [animTab, setAnimTab] = useState<'in' | 'out' | 'combo'>('in')
   const [beatAnalyzing, setBeatAnalyzing] = useState(false)
 
+  const playheadTime = useEditorStore((s) => s.playheadTime)
+
   const selectedClip = clips.find((c) => c.id === selectedClipId) ?? null
-  const fallbackClip =
-    selectedClip ??
-    clips.find((c) => c.trackType === 'video') ??
-    clips[0] ??
-    null
+  const visualTargetClip = resolveVisualTargetClip(clips, selectedClipId, playheadTime)
+  const fallbackClip = visualTargetClip ?? selectedClip ?? clips[0] ?? null
 
   const triggerVideoUpload = (trackType: TrackType) => {
     setPendingUploadTrack(trackType)

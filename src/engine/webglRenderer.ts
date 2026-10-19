@@ -141,7 +141,7 @@ export class WebGLVideoRenderer {
     this.sourceCanvas = document.createElement('canvas')
     this.sourceCanvas.width = 960
     this.sourceCanvas.height = 540
-    this.sourceCtx = this.sourceCanvas.getContext('2d', { alpha: false })
+    this.sourceCtx = this.sourceCanvas.getContext('2d', { alpha: true })
 
     this.blurCanvasA = document.createElement('canvas')
     this.blurCtxA = this.blurCanvasA.getContext('2d', { alpha: false })
@@ -154,6 +154,27 @@ export class WebGLVideoRenderer {
     this.histCtx = this.histCanvas.getContext('2d', {
       willReadFrequently: true,
     })
+
+    // Listen for WebGL context events on iOS Safari / WebKit
+    this.glCanvas.addEventListener(
+      'webglcontextlost',
+      (e) => {
+        e.preventDefault()
+        this.gl = null
+        this.program = null
+        this.vao = null
+        this.texture = null
+        this.uniformLocations.clear()
+      },
+      false
+    )
+    this.glCanvas.addEventListener(
+      'webglcontextrestored',
+      () => {
+        this.initWebGL2()
+      },
+      false
+    )
 
     this.initWebGL2()
   }
@@ -173,6 +194,7 @@ export class WebGLVideoRenderer {
       return
     }
     this.gl = gl
+    this.uniformLocations.clear()
 
     const vs = this.compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_300)
     const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_300)
@@ -240,6 +262,30 @@ export class WebGLVideoRenderer {
     this.texture = tex
 
     gl.bindVertexArray(null)
+  }
+
+  /**
+   * Ensures WebGL2 context and shaders are live and ready, auto-recovering if iOS Safari
+   * dropped the context during Photo Library or external asset imports.
+   */
+  private ensureWebGL2Context(): boolean {
+    if (
+      this.gl &&
+      !this.gl.isContextLost() &&
+      this.program &&
+      this.vao &&
+      this.texture
+    ) {
+      return true
+    }
+    this.initWebGL2()
+    return !!(
+      this.gl &&
+      !this.gl.isContextLost() &&
+      this.program &&
+      this.vao &&
+      this.texture
+    )
   }
 
   private compileShader(
@@ -857,21 +903,12 @@ export class WebGLVideoRenderer {
       this.sourceCanvas.height = height
     }
 
+    ctx.clearRect(0, 0, width, height)
     if (video.readyState >= 1 && video.videoWidth > 0 && video.videoHeight > 0) {
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(0, 0, width, height)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-
-      const vw = video.videoWidth
-      const vh = video.videoHeight
-      const scale = Math.min(width / vw, height / vh)
-      const dw = vw * scale
-      const dh = vh * scale
-      const dx = (width - dw) * 0.5
-      const dy = (height - dh) * 0.5
       try {
-        ctx.drawImage(video, dx, dy, dw, dh)
+        ctx.drawImage(video, 0, 0, width, height)
       } catch {
         // Ignore transient decode frame state on iOS Safari
       }
@@ -888,7 +925,16 @@ export class WebGLVideoRenderer {
     extraCasBoost: number
   ): boolean {
     if (extraCasBoost > 0.001) return true
-    if (clip.qualityEnhancer?.enabled) return true
+    if (
+      clip.qualityEnhancer &&
+      (clip.qualityEnhancer.enabled ||
+        clip.qualityEnhancer.casSharpen > 0 ||
+        clip.qualityEnhancer.bilateralDenoise > 0 ||
+        clip.qualityEnhancer.debandDither > 0 ||
+        clip.qualityEnhancer.midtoneClarity > 0)
+    ) {
+      return true
+    }
     if (clip.chromaKey?.enabled) return true
     if (clip.mask && clip.mask.shape !== 'none') return true
     if (clip.filterId && clip.filterId !== 'none' && clip.filterIntensity > 0) {
@@ -918,7 +964,7 @@ export class WebGLVideoRenderer {
       Math.abs(cg.vibrance) > 0.1 ||
       Math.abs(cg.temperature) > 0.1 ||
       Math.abs(cg.tint) > 0.1 ||
-      cg.sharpness > 0.1 ||
+      Math.abs(cg.sharpness) > 0.1 ||
       cg.filmGrain > 0.1 ||
       Math.abs(cg.vignette) > 0.1 ||
       cg.chromaticAberration > 0.1 ||
@@ -945,15 +991,13 @@ export class WebGLVideoRenderer {
       return sourceImage
     }
 
-    const gl = this.gl
-    const program = this.program
-    if (
-      !gl ||
-      !program ||
-      !this.vao ||
-      !this.texture ||
-      gl.isContextLost()
-    ) {
+    if (!this.ensureWebGL2Context()) {
+      return sourceImage
+    }
+
+    const gl = this.gl!
+    const program = this.program!
+    if (!this.vao || !this.texture) {
       return sourceImage
     }
 
@@ -996,22 +1040,31 @@ export class WebGLVideoRenderer {
     gl.uniform1f(this.getUniform('u_opacity'), Math.max(0, Math.min(1, props.opacity / 100)))
 
     // Quality Enhancer Pro + WhatsApp Anti-Compression CAS boost
-    const qualityEnabled = qe.enabled || extraCasBoost > 0.001 ? 1 : 0
+    const qualityEnabled =
+      qe.enabled ||
+      extraCasBoost > 0.001 ||
+      qe.casSharpen > 0 ||
+      qe.bilateralDenoise > 0 ||
+      qe.debandDither > 0 ||
+      qe.midtoneClarity > 0
+        ? 1
+        : 0
     const casValue =
-      (qe.enabled ? qe.casSharpen / 100 : 0) + Math.max(0, extraCasBoost)
+      (qe.enabled || qe.casSharpen > 0 ? qe.casSharpen / 100 : 0) +
+      Math.max(0, extraCasBoost)
     gl.uniform1i(this.getUniform('u_qualityEnabled'), qualityEnabled)
     gl.uniform1f(this.getUniform('u_casSharpen'), casValue)
     gl.uniform1f(
       this.getUniform('u_bilateralDenoise'),
-      qe.enabled ? qe.bilateralDenoise / 100 : 0
+      qe.enabled || qe.bilateralDenoise > 0 ? qe.bilateralDenoise / 100 : 0
     )
     gl.uniform1f(
       this.getUniform('u_debandDither'),
-      qe.enabled ? qe.debandDither / 100 : 0
+      qe.enabled || qe.debandDither > 0 ? qe.debandDither / 100 : 0
     )
     gl.uniform1f(
       this.getUniform('u_midtoneClarity'),
-      qe.enabled ? qe.midtoneClarity / 100 : 0
+      qe.enabled || qe.midtoneClarity > 0 ? qe.midtoneClarity / 100 : 0
     )
 
     // 16-Parameter Color Grading + Preset Grain/Halation
@@ -1570,6 +1623,7 @@ export class WebGLVideoRenderer {
           this.sourceCanvas.width = targetW
           this.sourceCanvas.height = targetH
         }
+        this.sourceCtx.clearRect(0, 0, targetW, targetH)
         this.sourceCtx.drawImage(this.targetCanvas, 0, 0, targetW, targetH)
         const gradedComposite = this.processThroughWebGL2(
           this.sourceCanvas,
@@ -1578,6 +1632,8 @@ export class WebGLVideoRenderer {
           extraCasBoost
         )
         ctx.save()
+        ctx.globalCompositeOperation = mapBlendModeToCanvasComposite(adjClip.blendMode)
+        ctx.globalAlpha = Math.max(0, Math.min(1, adjClip.opacity / 100))
         ctx.drawImage(gradedComposite, 0, 0, targetW, targetH)
         ctx.restore()
       }

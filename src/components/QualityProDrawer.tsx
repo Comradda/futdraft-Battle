@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import {
   DEFAULT_QUALITY_ENHANCER,
+  resolveVisualTargetClip,
   useEditorStore,
 } from '../store/useEditorStore'
 import type { ColorGradingConfig, QualityEnhancerConfig } from '../types/editor'
@@ -139,14 +140,14 @@ export const QualityProDrawer: React.FC = () => {
   const [selectedColorKey, setSelectedColorKey] =
     useState<keyof ColorGradingConfig>('exposure')
 
+  const playheadTime = useEditorStore((s) => s.playheadTime)
+
   if (activeDrawer !== 'quality_pro' && activeDrawer !== 'adjust') {
     return null
   }
 
   const targetClip =
-    clips.find((c) => c.id === selectedClipId) ??
-    clips.find((c) => c.trackType === 'adjustment') ??
-    clips.find((c) => c.trackType === 'video') ??
+    resolveVisualTargetClip(clips, selectedClipId, playheadTime) ??
     clips[0]
 
   if (!targetClip) return null

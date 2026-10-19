@@ -916,10 +916,11 @@ void main() {
   // ---------------------------------------------------------------------------
   // 3. 5-Tap Neighbor Sampling for Bilateral Denoiser & AMD FidelityFX CAS
   // ---------------------------------------------------------------------------
-  vec3 cN = texture(u_tex, clamp(uv + vec2(0.0, -u_texelSize.y), 0.0, 1.0)).rgb;
-  vec3 cS = texture(u_tex, clamp(uv + vec2(0.0,  u_texelSize.y), 0.0, 1.0)).rgb;
-  vec3 cW = texture(u_tex, clamp(uv + vec2(-u_texelSize.x, 0.0), 0.0, 1.0)).rgb;
-  vec3 cE = texture(u_tex, clamp(uv + vec2( u_texelSize.x, 0.0), 0.0, 1.0)).rgb;
+  vec2 casStep = u_texelSize * (1.6 + clamp(u_casSharpen, 0.0, 1.5) * 1.4);
+  vec3 cN = texture(u_tex, clamp(uv + vec2(0.0, -casStep.y), 0.0, 1.0)).rgb;
+  vec3 cS = texture(u_tex, clamp(uv + vec2(0.0,  casStep.y), 0.0, 1.0)).rgb;
+  vec3 cW = texture(u_tex, clamp(uv + vec2(-casStep.x, 0.0), 0.0, 1.0)).rgb;
+  vec3 cE = texture(u_tex, clamp(uv + vec2( casStep.x, 0.0), 0.0, 1.0)).rgb;
 
   vec3 workingCol = centerCol;
 
@@ -938,16 +939,19 @@ void main() {
   }
 
   // AMD FidelityFX CAS (Contrast Adaptive Sharpening) + Manual Sharpness
-  float totalSharpen = u_sharpness * 0.65 + ((u_qualityEnabled == 1) ? u_casSharpen : 0.0);
+  float totalSharpen = u_sharpness * 0.85 + ((u_qualityEnabled == 1) ? u_casSharpen * 1.25 : 0.0);
   if (totalSharpen > 0.001) {
     vec3 minRGB = min(workingCol, min(min(cN, cS), min(cW, cE)));
     vec3 maxRGB = max(workingCol, max(max(cN, cS), max(cW, cE)));
     vec3 amp = clamp(min(minRGB, 1.0 - maxRGB) / max(maxRGB, vec3(0.0001)), 0.0, 1.0);
     amp = sqrt(max(amp, vec3(0.0)));
-    float peak = -1.0 / mix(8.0, 4.6, clamp(totalSharpen, 0.0, 1.35));
+    float peak = -1.0 / mix(8.0, 3.8, clamp(totalSharpen, 0.0, 1.5));
     vec3 w = amp * peak;
     vec3 rcpWeight = 1.0 / max(vec3(0.001), 1.0 + 4.0 * w);
     workingCol = clamp((workingCol + (cN + cS + cW + cE) * w) * rcpWeight, 0.0, 1.0);
+  } else if (totalSharpen < -0.001) {
+    vec3 blurCol = (cN + cS + cW + cE) * 0.25;
+    workingCol = mix(workingCol, blurCol, clamp(-totalSharpen, 0.0, 0.75));
   }
 
   // ---------------------------------------------------------------------------
@@ -997,9 +1001,15 @@ void main() {
   workingCol = (workingCol - 0.5) * contrastFactor + 0.5;
 
   if (u_qualityEnabled == 1 && u_midtoneClarity > 0.001) {
+    vec2 wideStep = u_texelSize * 3.6;
+    vec3 wideMean = (
+      texture(u_tex, clamp(uv + vec2(wideStep.x, wideStep.y), 0.0, 1.0)).rgb +
+      texture(u_tex, clamp(uv + vec2(-wideStep.x, wideStep.y), 0.0, 1.0)).rgb +
+      texture(u_tex, clamp(uv + vec2(wideStep.x, -wideStep.y), 0.0, 1.0)).rgb +
+      texture(u_tex, clamp(uv + vec2(-wideStep.x, -wideStep.y), 0.0, 1.0)).rgb
+    ) * 0.25;
     float midWeight = 4.0 * luma * (1.0 - luma);
-    vec3 localMean = (cN + cS + cW + cE) * 0.25;
-    workingCol += (workingCol - localMean) * u_midtoneClarity * midWeight * 0.9;
+    workingCol += (workingCol - wideMean) * u_midtoneClarity * midWeight * 1.35;
   }
 
   // Saturation & Skin-Tone Protected Vibrance
