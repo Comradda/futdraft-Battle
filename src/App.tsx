@@ -1,230 +1,141 @@
-import { useState, useEffect } from 'react';
-import type { GameType, UserProfile } from './types/casino';
-import { loadUserProfile, saveUserProfile } from './utils/storage';
-import { sound } from './utils/audio';
-import { triggerHaptic } from './utils/haptics';
+import React, { useEffect } from 'react'
+import { TopBar } from './components/TopBar'
+import { PreviewCanvasWithGizmos } from './components/PreviewCanvasWithGizmos'
+import { MagneticTimeline } from './components/MagneticTimeline'
+import { ContextualBottomDock } from './components/ContextualBottomDock'
+import { SpeedCurveDrawer } from './components/SpeedCurveDrawer'
+import { FilterGalleryDrawer } from './components/FilterGalleryDrawer'
+import { QualityProDrawer } from './components/QualityProDrawer'
+import { AudioExtractorModal } from './components/AudioExtractorModal'
+import { ExportModal } from './components/ExportModal'
+import { useEditorStore } from './store/useEditorStore'
+import { unlockAudioContext } from './engine/audioEngine'
 
-// Views and Games
-import { LobbyView } from './components/lobby/LobbyView';
-import { FutDraftGame } from './components/futdraft/FutDraftGame';
-import { BlackjackGame } from './components/games/BlackjackGame';
-import { PokerGame } from './components/games/PokerGame';
-import { ConquianGame } from './components/games/ConquianGame';
-import { RouletteGame } from './components/games/RouletteGame';
-import { ErrorBoundary } from './components/common/ErrorBoundary';
+export function App(): React.ReactElement {
+  const togglePlay = useEditorStore((s) => s.togglePlay)
+  const undo = useEditorStore((s) => s.undo)
+  const redo = useEditorStore((s) => s.redo)
+  const splitSelectedClip = useEditorStore((s) => s.splitSelectedClip)
+  const deleteSelectedClip = useEditorStore((s) => s.deleteSelectedClip)
+  const toggleKeyframeAtPlayhead = useEditorStore(
+    (s) => s.toggleKeyframeAtPlayhead
+  )
+  const freezeSelectedClip = useEditorStore((s) => s.freezeSelectedClip)
+  const setAudioUnlocked = useEditorStore((s) => s.setAudioUnlocked)
 
-// Modals
-import { CustomizationModal } from './components/modals/CustomizationModal';
-import { LeaderboardModal } from './components/modals/LeaderboardModal';
-import { ProfileModal } from './components/modals/ProfileModal';
-import { RewardedAdModal } from './components/modals/RewardedAdModal';
-import { MultiplayerModal } from './components/modals/MultiplayerModal';
-import { DailyRewardModal } from './components/modals/DailyRewardModal';
-import { multiplayer } from './utils/multiplayer';
-
-export function App() {
-  const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
-  const [currentGame, setCurrentGame] = useState<GameType>('futdraft');
-
-  // Modals state
-  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isAdOpen, setIsAdOpen] = useState(false);
-  const [isDailyRewardOpen, setIsDailyRewardOpen] = useState(false);
-  const [isMultiplayerOpen, setIsMultiplayerOpen] = useState(false);
-  const [isMultiplayerConnected, setIsMultiplayerConnected] = useState(false);
-
+  // Global iOS Safari WebKit First-Touch AudioContext Unlocker
   useEffect(() => {
-    const unsubStatus = multiplayer.onStatusChange((status) => {
-      setIsMultiplayerConnected(status === 'connected');
-    });
-
-    const unsubMsg = multiplayer.onMessage((msg) => {
-      if (msg.type === 'GAME_ACTION' && msg.payload) {
-        if (msg.payload.action === 'START_GAME' && msg.payload.game) {
-          setCurrentGame(msg.payload.game);
-          setIsMultiplayerOpen(false);
-          sound.playCardDeal();
-          triggerHaptic('success');
-        } else if (msg.payload.action === 'LEAVE_TO_LOBBY') {
-          setCurrentGame('lobby');
-          sound.playChip();
-          triggerHaptic('light');
-        }
+    const handleFirstInteraction = async () => {
+      const ok = await unlockAudioContext()
+      if (ok) {
+        setAudioUnlocked(true)
       }
-    });
+    }
+
+    window.addEventListener('touchstart', handleFirstInteraction, {
+      passive: true,
+      once: true,
+    })
+    window.addEventListener('pointerdown', handleFirstInteraction, {
+      passive: true,
+      once: true,
+    })
+    window.addEventListener('keydown', handleFirstInteraction, {
+      passive: true,
+      once: true,
+    })
 
     return () => {
-      unsubStatus();
-      unsubMsg();
-    };
-  }, []);
-
-  const handleBackToLobby = () => {
-    sound.playChip();
-    triggerHaptic('light');
-    if (isMultiplayerConnected) {
-      multiplayer.send({
-        type: 'GAME_ACTION',
-        senderId: profile.id,
-        senderName: profile.name,
-        payload: { action: 'LEAVE_TO_LOBBY' },
-        timestamp: Date.now(),
-      });
+      window.removeEventListener('touchstart', handleFirstInteraction)
+      window.removeEventListener('pointerdown', handleFirstInteraction)
+      window.removeEventListener('keydown', handleFirstInteraction)
     }
-    setCurrentGame('lobby');
-  };
+  }, [setAudioUnlocked])
 
-  // Sync sound setting on load
+  // Pro Desktop & iPad Keyboard Shortcuts (Space, Undo/Redo, Split, Delete, Keyframe, Freeze)
   useEffect(() => {
-    sound.setEnabled(profile.soundEnabled);
-  }, [profile.soundEnabled]);
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
 
-  // Handle profile updates & persistence
-  const handleUpdateProfile = (updated: Partial<UserProfile>) => {
-    setProfile(prev => {
-      const next = { ...prev, ...updated };
-      saveUserProfile(next);
-      // Synchronize with peer player in real-time
-      multiplayer.syncLocalPlayer({
-        name: next.name,
-        photoUrl: next.photoUrl,
-        bankroll: next.bankroll,
-        weeklyScore: next.weeklyScore,
-      });
-      return next;
-    });
-  };
+      if (e.code === 'Space') {
+        e.preventDefault()
+        void unlockAudioContext().then((ok) => {
+          if (ok) setAudioUnlocked(true)
+        })
+        togglePlay()
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          redo()
+        } else {
+          undo()
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+      } else if (
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') ||
+        (!e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 's')
+      ) {
+        e.preventDefault()
+        splitSelectedClip()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        deleteSelectedClip()
+      } else if (!e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        toggleKeyframeAtPlayhead()
+      } else if (!e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        freezeSelectedClip()
+      }
+    }
 
-  // Claim rewarded ad chips
-  const handleRewardClaimed = (amount: number) => {
-    handleUpdateProfile({
-      bankroll: profile.bankroll + amount,
-    });
-  };
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    togglePlay,
+    undo,
+    redo,
+    splitSelectedClip,
+    deleteSelectedClip,
+    toggleKeyframeAtPlayhead,
+    freezeSelectedClip,
+    setAudioUnlocked,
+  ])
 
   return (
-    <main className="w-full h-screen h-[100dvh] overflow-hidden overflow-x-hidden max-w-full bg-neutral-950 font-sans text-neutral-100 flex flex-col">
-      {/* 1. Lobby View */}
-      {currentGame === 'lobby' && (
-        <LobbyView
-          profile={profile}
-          onSelectGame={(game: GameType) => {
-            setCurrentGame(game);
-          }}
-          onOpenCustomization={() => setIsCustomizationOpen(true)}
-          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-          onOpenProfile={() => setIsProfileOpen(true)}
-          onOpenAds={() => setIsAdOpen(true)}
-          onOpenDailyReward={() => setIsDailyRewardOpen(true)}
-          onOpenMultiplayer={() => setIsMultiplayerOpen(true)}
-          isMultiplayerConnected={isMultiplayerConnected}
-        />
-      )}
+    <div className="relative flex flex-col w-full h-[100dvh] max-h-[100dvh] bg-[#09090B] text-[#F4F4F6] overflow-hidden select-none overscroll-none safe-top">
+      {/* 1. Top Header Bar (44px) */}
+      <TopBar />
 
-      {/* 1.5 FUTDRAFT AI & TACTICS (EA SPORTS FC 27) */}
-      {currentGame === 'futdraft' && (
-        <ErrorBoundary fallbackTitle="FUTDRAFT AI & TACTICS (FC 27)" onBackToLobby={handleBackToLobby}>
-          <FutDraftGame
-            userProfile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onBackToLobby={handleBackToLobby}
-          />
-        </ErrorBoundary>
-      )}
+      {/* 2 & 3. Interactive WebGL2 Preview Viewport (42% height) + Playback Strip (36px) */}
+      <PreviewCanvasWithGizmos />
 
-      {/* 2. Blackjack 21 Game */}
-      {currentGame === 'blackjack' && (
-        <ErrorBoundary fallbackTitle="Mesa de Blackjack 21" onBackToLobby={handleBackToLobby}>
-          <BlackjackGame
-            userProfile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onBackToLobby={handleBackToLobby}
-            onOpenRechargeModal={() => setIsAdOpen(true)}
-          />
-        </ErrorBoundary>
-      )}
+      {/* 4. Multi-Track Magnetic Timeline (32% height) */}
+      <MagneticTimeline />
 
-      {/* 3. Texas Hold'em Poker Game */}
-      {currentGame === 'poker' && (
-        <ErrorBoundary fallbackTitle="Mesa de Texas Hold'em" onBackToLobby={handleBackToLobby}>
-          <PokerGame
-            userProfile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onBackToLobby={handleBackToLobby}
-            onOpenRechargeModal={() => setIsAdOpen(true)}
-          />
-        </ErrorBoundary>
-      )}
+      {/* Floating Specialized Drawers (Speed Curves, 32 Filters, Calidad Pro & Color Grading) */}
+      <SpeedCurveDrawer />
+      <FilterGalleryDrawer />
+      <QualityProDrawer />
 
-      {/* 4. Conquian Game */}
-      {currentGame === 'conquian' && (
-        <ErrorBoundary fallbackTitle="Mesa de Conquián" onBackToLobby={handleBackToLobby}>
-          <ConquianGame
-            profile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onBackToLobby={handleBackToLobby}
-          />
-        </ErrorBoundary>
-      )}
+      {/* 5. CapCut Contextual Bottom Dock (Dynamic State Machine + Sub-Drawers) */}
+      <ContextualBottomDock />
 
-      {/* 5. European Roulette Game */}
-      {currentGame === 'roulette' && (
-        <ErrorBoundary fallbackTitle="Mesa de Ruleta Europea" onBackToLobby={handleBackToLobby}>
-          <RouletteGame
-            userProfile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onBackToLobby={handleBackToLobby}
-            onOpenRechargeModal={() => setIsAdOpen(true)}
-          />
-        </ErrorBoundary>
-      )}
-
-      {/* Global Modals */}
-      <CustomizationModal
-        isOpen={isCustomizationOpen}
-        onClose={() => setIsCustomizationOpen(false)}
-        profile={profile}
-        onUpdateProfile={handleUpdateProfile}
-      />
-
-      <LeaderboardModal
-        isOpen={isLeaderboardOpen}
-        onClose={() => setIsLeaderboardOpen(false)}
-        currentUser={profile}
-      />
-
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={profile}
-        onSaveProfile={handleUpdateProfile}
-      />
-
-      <RewardedAdModal
-        isOpen={isAdOpen}
-        onClose={() => setIsAdOpen(false)}
-        onRewardClaimed={handleRewardClaimed}
-      />
-
-      <MultiplayerModal
-        isOpen={isMultiplayerOpen}
-        onClose={() => setIsMultiplayerOpen(false)}
-        currentUser={profile}
-        onStartMultiplayerGame={(game: GameType) => {
-          setCurrentGame(game);
-        }}
-      />
-
-      <DailyRewardModal
-        isOpen={isDailyRewardOpen}
-        onClose={() => setIsDailyRewardOpen(false)}
-        profile={profile}
-        onUpdateProfile={handleUpdateProfile}
-      />
-    </main>
-  );
+      {/* Dedicated Pro Modals (Extract Audio <1s + Export with WhatsApp Anti-Compression & Story Slicer) */}
+      <AudioExtractorModal />
+      <ExportModal />
+    </div>
+  )
 }
 
-export default App;
+export default App
