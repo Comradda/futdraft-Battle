@@ -10,7 +10,9 @@ import {
   Check,
   ChevronDown,
   Smartphone,
+  FolderOpen,
 } from 'lucide-react'
+
 import { useEditorStore } from '../store/useEditorStore'
 import type { SocialSafeZoneMode } from '../types/editor'
 
@@ -66,6 +68,9 @@ export const TopBar: React.FC = () => {
   const redo = useEditorStore((s) => s.redo)
   const pastCount = useEditorStore((s) => s.past.length)
   const futureCount = useEditorStore((s) => s.future.length)
+  const saveStatus = useEditorStore((s) => s.saveStatus)
+  const saveCurrentProject = useEditorStore((s) => s.saveCurrentProject)
+  const setProjectsModalOpen = useEditorStore((s) => s.setProjectsModalOpen)
 
   const [isEditingName, setIsEditingName] = useState(false)
   const [draftName, setDraftName] = useState(projectName)
@@ -126,13 +131,25 @@ export const TopBar: React.FC = () => {
 
   return (
     <header className="safe-top relative z-40 flex h-[44px] min-h-[44px] w-full shrink-0 items-center justify-between border-b border-[#1F1F23] bg-[#09090B] px-2.5 select-none">
-      {/* Left section: Brand Logo + Reset/Demo + Editable Project Title */}
+      {/* Left section: Brand Logo + Mis Proyectos button + Reset/Demo + Editable Project Title + Save Status */}
       <div className="flex min-w-0 items-center gap-1.5">
         <img
           src="/favicon.svg"
           alt="CapCut Studio Pro"
           className="h-6 w-6 shrink-0 rounded-[6px] shadow-sm border border-white/10"
         />
+
+        {/* Mis Proyectos Button */}
+        <button
+          type="button"
+          onClick={() => setProjectsModalOpen(true)}
+          title="Ver Mis Proyectos guardados en este dispositivo"
+          className="flex h-7 items-center gap-1.5 rounded-lg border border-[#27272A] bg-[#141417] px-2 text-[11px] font-semibold text-[#F4F4F6] transition-all hover:border-[#00E5FF]/50 hover:bg-[#1F1F23] active:scale-95 cursor-pointer"
+        >
+          <FolderOpen className="h-3.5 w-3.5 text-[#00E5FF]" />
+          <span className="hidden sm:inline">Proyectos</span>
+        </button>
+
         <button
           type="button"
           onClick={handleResetClick}
@@ -185,7 +202,7 @@ export const TopBar: React.FC = () => {
             type="button"
             onClick={() => setIsEditingName(true)}
             title="Renombrar proyecto"
-            className="group flex max-w-[110px] items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-semibold text-[#F4F4F6] transition-colors hover:bg-[#141417] sm:max-w-[160px]"
+            className="group flex max-w-[105px] items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-semibold text-[#F4F4F6] transition-colors hover:bg-[#141417] sm:max-w-[150px]"
           >
             <span className="truncate">{projectName}</span>
             <span className="text-[10px] text-[#00E5FF] opacity-70 group-hover:opacity-100">
@@ -193,7 +210,28 @@ export const TopBar: React.FC = () => {
             </span>
           </button>
         )}
+
+        {/* Live Save Status Indicator */}
+        <button
+          type="button"
+          onClick={() => void saveCurrentProject()}
+          title="Guardado automático en tu dispositivo. Haz clic para forzar guardado."
+          className="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition cursor-pointer hover:bg-white/5 shrink-0"
+        >
+          {saveStatus === 'saving' ? (
+            <span className="flex items-center gap-1 text-[#00E5FF]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#00E5FF] animate-ping" />
+              <span>Guardando...</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[#22C55E]/90 hover:text-[#22C55E]">
+              <Check className="h-3 w-3 text-[#22C55E]" />
+              <span>Guardado</span>
+            </span>
+          )}
+        </button>
       </div>
+
 
       {/* Center section: Social Safe-Zone HUD Selector + Live RGB Histogram + Undo/Redo */}
       <div className="flex items-center gap-1">

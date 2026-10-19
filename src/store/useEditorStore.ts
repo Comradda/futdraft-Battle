@@ -1,5 +1,16 @@
 import { create } from 'zustand'
-import { loadMediaBlobUrl } from '../utils/opfsStorage'
+import {
+  generateProjectId,
+  getActiveProjectIdSync,
+  setActiveProjectIdSync,
+  saveProjectData,
+  saveProjectDataSync,
+  loadProjectData,
+  deleteProjectData,
+  duplicateProjectData,
+  downloadProjectBackup,
+  parseProjectBackupFile,
+} from '../utils/projectStorage'
 import type {
   ActiveDrawerType,
   AspectRatio,
@@ -17,6 +28,8 @@ import type {
   KeyframeEasing,
   MaskConfig,
   QualityEnhancerConfig,
+  SaveStatus,
+  SerializedProjectData,
   SnapGuideState,
   SocialSafeZoneMode,
   SpeedConfig,
@@ -27,6 +40,7 @@ import type {
   TimelineTrack,
   TrackType,
 } from '../types/editor'
+
 
 export const DEFAULT_COLOR_GRADING: ColorGradingConfig = {
   exposure: 0,
@@ -861,6 +875,11 @@ export function getInterpolatedClipProps(
 }
 
 export interface EditorState {
+  currentProjectId: string
+  projectCreatedAt: number
+  saveStatus: SaveStatus
+  lastSavedAt: number | null
+  isProjectsModalOpen: boolean
   projectName: string
   tracks: TimelineTrack[]
   clips: TimelineClip[]
@@ -882,8 +901,20 @@ export interface EditorState {
   past: EditorSnapshot[]
   future: EditorSnapshot[]
 
+  // Project Management Actions
+  setProjectsModalOpen: (open: boolean) => void
+  setSaveStatus: (status: SaveStatus) => void
+  saveCurrentProject: (immediate?: boolean) => Promise<void>
+  loadProjectById: (id: string) => Promise<boolean>
+  createNewProjectInStore: (name?: string) => Promise<void>
+  duplicateCurrentProject: () => Promise<string | null>
+  deleteProjectById: (id: string) => Promise<void>
+  exportCurrentProjectBackup: () => void
+  importProjectBackupFile: (file: File) => Promise<boolean>
+
   // Actions
   setProjectName: (name: string) => void
+
   resetProjectToDemo: () => void
   pushHistory: () => void
   undo: () => void
@@ -991,6 +1022,11 @@ const INITIAL_HISTOGRAM: HistogramData = {
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
+  currentProjectId: 'proj_default_master',
+  projectCreatedAt: Date.now(),
+  saveStatus: 'saved',
+  lastSavedAt: null,
+  isProjectsModalOpen: false,
   projectName: 'Reel_Master_Pro',
   tracks: INITIAL_TRACKS.map((t) => ({ ...t })),
   clips: createInitialClips(),
@@ -1033,20 +1069,178 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setProjectName: (projectName) => set({ projectName }),
 
-  resetProjectToDemo: () => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(AUTOSAVE_STORAGE_KEY)
+  setProjectsModalOpen: (isProjectsModalOpen) => set({ isProjectsModalOpen }),
+  setSaveStatus: (saveStatus) => set({ saveStatus }),
+
+  saveCurrentProject: async () => {
+    const state = get()
+    set({ saveStatus: 'saving' })
+    try {
+      const data: SerializedProjectData = {
+        version: 1,
+        id: state.currentProjectId,
+        projectName: state.projectName,
+        aspectRatio: state.aspectRatio,
+        canvasBackground: state.canvasBackground,
+        tracks: state.tracks,
+        clips: state.clips,
+        playheadTime: state.playheadTime,
+        savedAt: Date.now(),
+        createdAt: state.projectCreatedAt || Date.now(),
+      }
+      await saveProjectData(data)
+      set({ saveStatus: 'saved', lastSavedAt: Date.now() })
+    } catch {
+      set({ saveStatus: 'error' })
     }
+  },
+
+  loadProjectById: async (id: string) => {
+    try {
+      flushProjectSaveSync()
+      const proj = await loadProjectData(id)
+      if (!proj) return false
+      set({
+        currentProjectId: proj.id,
+        projectCreatedAt: proj.createdAt || Date.now(),
+        projectName: proj.projectName,
+        aspectRatio: proj.aspectRatio,
+        canvasBackground: proj.canvasBackground,
+        tracks:
+          Array.isArray(proj.tracks) && proj.tracks.length > 0
+            ? proj.tracks
+            : INITIAL_TRACKS.map((t) => ({ ...t })),
+        clips: proj.clips,
+        playheadTime: 0,
+        selectedClipId: null,
+        saveStatus: 'saved',
+        lastSavedAt: proj.savedAt,
+        past: [],
+        future: [],
+        isProjectsModalOpen: false,
+      })
+      setActiveProjectIdSync(proj.id)
+      return true
+    } catch (err) {
+      console.warn('Could not load project:', err)
+      return false
+    }
+  },
+
+  createNewProjectInStore: async (name?: string) => {
+    flushProjectSaveSync()
+    const newId = generateProjectId()
+    const now = Date.now()
+    const defaultClips = createInitialClips()
+    const cleanProject: SerializedProjectData = {
+      version: 1,
+      id: newId,
+      projectName:
+        name ||
+        `Proyecto_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}`,
+      aspectRatio: '9:16',
+      canvasBackground: {
+        mode: 'blur',
+        blurLevel: 3,
+        solidColor: '#09090B',
+        gradientId: 'cyber_night',
+        gradientColors: ['#09090B', '#1A103C'],
+      },
+      tracks: INITIAL_TRACKS.map((t) => ({ ...t })),
+      clips: defaultClips,
+      playheadTime: 0,
+      savedAt: now,
+      createdAt: now,
+    }
+    await saveProjectData(cleanProject)
+    set({
+      currentProjectId: newId,
+      projectCreatedAt: now,
+      projectName: cleanProject.projectName,
+      aspectRatio: cleanProject.aspectRatio,
+      canvasBackground: cleanProject.canvasBackground,
+      tracks: cleanProject.tracks,
+      clips: cleanProject.clips,
+      playheadTime: 0,
+      selectedClipId: null,
+      saveStatus: 'saved',
+      lastSavedAt: now,
+      past: [],
+      future: [],
+      isProjectsModalOpen: false,
+    })
+    setActiveProjectIdSync(newId)
+  },
+
+  duplicateCurrentProject: async () => {
+    const state = get()
+    flushProjectSaveSync()
+    const newId = await duplicateProjectData(state.currentProjectId)
+    if (newId) {
+      await get().loadProjectById(newId)
+      return newId
+    }
+    return null
+  },
+
+  deleteProjectById: async (id: string) => {
+    await deleteProjectData(id)
+    if (id === get().currentProjectId) {
+      await get().createNewProjectInStore()
+    }
+  },
+
+  exportCurrentProjectBackup: () => {
+    const state = get()
+    const data: SerializedProjectData = {
+      version: 1,
+      id: state.currentProjectId,
+      projectName: state.projectName,
+      aspectRatio: state.aspectRatio,
+      canvasBackground: state.canvasBackground,
+      tracks: state.tracks,
+      clips: state.clips,
+      playheadTime: state.playheadTime,
+      savedAt: Date.now(),
+      createdAt: state.projectCreatedAt || Date.now(),
+    }
+    downloadProjectBackup(data)
+  },
+
+  importProjectBackupFile: async (file: File) => {
+    try {
+      flushProjectSaveSync()
+      const parsed = await parseProjectBackupFile(file)
+      await saveProjectData(parsed)
+      await get().loadProjectById(parsed.id)
+      return true
+    } catch (err) {
+      console.warn('Could not import project backup:', err)
+      return false
+    }
+  },
+
+  resetProjectToDemo: () => {
+    const newId = generateProjectId()
+    const initialClips = createInitialClips()
     get().pushHistory()
     set({
+      currentProjectId: newId,
+      projectCreatedAt: Date.now(),
+      projectName: 'Reel_Master_Pro',
       tracks: INITIAL_TRACKS.map((t) => ({ ...t })),
-      clips: createInitialClips(),
+      clips: initialClips,
       selectedClipId: null,
       playheadTime: 0,
       isPlaying: false,
       activeDrawer: 'none',
+      saveStatus: 'saved',
+      lastSavedAt: Date.now(),
     })
+    setActiveProjectIdSync(newId)
+    flushProjectSaveSync()
   },
+
 
   pushHistory: () => {
     const { clips, tracks, aspectRatio, canvasBackground, past } = get()
@@ -2044,79 +2238,107 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
 export const AUTOSAVE_STORAGE_KEY = 'capcut_studio_project_autosave_v1'
 
-export interface SerializedProjectData {
-  version: 1
-  projectName: string
-  aspectRatio: AspectRatio
-  canvasBackground: CanvasBackgroundConfig
-  tracks: TimelineTrack[]
-  clips: TimelineClip[]
-  playheadTime: number
-  savedAt: number
-}
-
 let autosaveTimeoutId: number | null = null
 
-export function scheduleProjectAutoSave(state: EditorState): void {
-  if (typeof window === 'undefined' || !window.localStorage) return
+export function scheduleProjectAutoSave(): void {
+  if (typeof window === 'undefined') return
+
+  useEditorStore.setState({ saveStatus: 'saving' })
   if (autosaveTimeoutId !== null) {
     window.clearTimeout(autosaveTimeoutId)
   }
-  autosaveTimeoutId = window.setTimeout(() => {
+  autosaveTimeoutId = window.setTimeout(async () => {
     autosaveTimeoutId = null
     try {
-      // Do not overwrite user save if timeline is completely empty
-      if (!state.clips || state.clips.length === 0) return
+      const currentState = useEditorStore.getState()
+      if (!currentState.clips || currentState.clips.length === 0) {
+        useEditorStore.setState({ saveStatus: 'saved' })
+        return
+      }
 
       const data: SerializedProjectData = {
         version: 1,
-        projectName: state.projectName,
-        aspectRatio: state.aspectRatio,
-        canvasBackground: state.canvasBackground,
-        tracks: state.tracks,
-        clips: state.clips,
-        playheadTime: state.playheadTime,
+        id: currentState.currentProjectId,
+        projectName: currentState.projectName,
+        aspectRatio: currentState.aspectRatio,
+        canvasBackground: currentState.canvasBackground,
+        tracks: currentState.tracks,
+        clips: currentState.clips,
+        playheadTime: currentState.playheadTime,
         savedAt: Date.now(),
+        createdAt: currentState.projectCreatedAt || Date.now(),
       }
-      window.localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(data))
+      await saveProjectData(data)
+      useEditorStore.setState({ saveStatus: 'saved', lastSavedAt: Date.now() })
     } catch {
-      // Ignore quota errors on mobile
+      useEditorStore.setState({ saveStatus: 'error' })
     }
-  }, 350)
+  }, 500)
+}
+
+export function flushProjectSaveSync(): void {
+  if (autosaveTimeoutId !== null) {
+    window.clearTimeout(autosaveTimeoutId)
+    autosaveTimeoutId = null
+  }
+  try {
+    const currentState = useEditorStore.getState()
+    if (!currentState.clips || currentState.clips.length === 0) return
+
+    const data: SerializedProjectData = {
+      version: 1,
+      id: currentState.currentProjectId,
+      projectName: currentState.projectName,
+      aspectRatio: currentState.aspectRatio,
+      canvasBackground: currentState.canvasBackground,
+      tracks: currentState.tracks,
+      clips: currentState.clips,
+      playheadTime: currentState.playheadTime,
+      savedAt: Date.now(),
+      createdAt: currentState.projectCreatedAt || Date.now(),
+    }
+    saveProjectDataSync(data)
+    void saveProjectData(data)
+  } catch {
+    // Ignore
+  }
 }
 
 /**
- * Restores project edits and media blob URLs after page reloads or WebKit Jetsam restarts.
+ * Restores active project edits and media blob URLs after page reloads or WebKit Jetsam restarts.
  */
 export async function restoreProjectFromStorage(): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.localStorage) return false
+  if (typeof window === 'undefined') return false
   try {
-    const raw = window.localStorage.getItem(AUTOSAVE_STORAGE_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw) as Partial<SerializedProjectData>
-    if (!parsed || !Array.isArray(parsed.clips) || parsed.clips.length === 0) {
-      return false
+    const activeId = getActiveProjectIdSync()
+    let project: SerializedProjectData | null = null
+    if (activeId) {
+      project = await loadProjectData(activeId)
     }
-
-    const restoredClips: TimelineClip[] = []
-    for (const clip of parsed.clips) {
-      if (clip.mediaBlobId) {
-        // Re-acquire fresh Object URL for this browser session from OPFS/IndexedDB
-        const freshUrl = await loadMediaBlobUrl(clip.mediaBlobId)
-        if (freshUrl) {
-          restoredClips.push({ ...clip, mediaUrl: freshUrl })
-        } else {
-          restoredClips.push(clip)
+    if (!project) {
+      // Try default/autosave fallback
+      project = await loadProjectData('proj_default_master')
+    }
+    if (!project && window.localStorage) {
+      const raw = window.localStorage.getItem(AUTOSAVE_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as SerializedProjectData
+        if (parsed && Array.isArray(parsed.clips) && parsed.clips.length > 0) {
+          project = parsed
         }
-      } else {
-        restoredClips.push(clip)
       }
     }
 
+    if (!project || !Array.isArray(project.clips) || project.clips.length === 0) {
+      return false
+    }
+
     useEditorStore.setState({
-      projectName: parsed.projectName || 'Reel_Master_Pro',
-      aspectRatio: parsed.aspectRatio || '9:16',
-      canvasBackground: parsed.canvasBackground || {
+      currentProjectId: project.id || 'proj_default_master',
+      projectCreatedAt: project.createdAt || Date.now(),
+      projectName: project.projectName || 'Reel_Master_Pro',
+      aspectRatio: project.aspectRatio || '9:16',
+      canvasBackground: project.canvasBackground || {
         mode: 'blur',
         blurLevel: 3,
         solidColor: '#09090B',
@@ -2124,14 +2346,19 @@ export async function restoreProjectFromStorage(): Promise<boolean> {
         gradientColors: ['#09090B', '#1A103C'],
       },
       tracks:
-        Array.isArray(parsed.tracks) && parsed.tracks.length > 0
-          ? parsed.tracks
-          : INITIAL_TRACKS,
-      clips: restoredClips,
-      playheadTime:
-        typeof parsed.playheadTime === 'number' ? parsed.playheadTime : 0,
+        Array.isArray(project.tracks) && project.tracks.length > 0
+          ? project.tracks
+          : INITIAL_TRACKS.map((t) => ({ ...t })),
+      clips: project.clips,
+      playheadTime: 0,
       selectedClipId: null,
+      saveStatus: 'saved',
+      lastSavedAt: project.savedAt || Date.now(),
     })
+
+    if (project.id) {
+      setActiveProjectIdSync(project.id)
+    }
 
     return true
   } catch (err) {
@@ -2140,7 +2367,41 @@ export async function restoreProjectFromStorage(): Promise<boolean> {
   }
 }
 
-// Subscribe to store changes to automatically serialize project edits
+// Track structural properties to completely isolate playhead scrubbing from auto-save
+let prevClips = useEditorStore.getState().clips
+let prevTracks = useEditorStore.getState().tracks
+let prevName = useEditorStore.getState().projectName
+let prevAspect = useEditorStore.getState().aspectRatio
+let prevBg = useEditorStore.getState().canvasBackground
+let prevProjectId = useEditorStore.getState().currentProjectId
+
 useEditorStore.subscribe((state) => {
-  scheduleProjectAutoSave(state)
+  const clipsChanged = state.clips !== prevClips
+  const tracksChanged = state.tracks !== prevTracks
+  const nameChanged = state.projectName !== prevName
+  const aspectChanged = state.aspectRatio !== prevAspect
+  const bgChanged = state.canvasBackground !== prevBg
+  const idChanged = state.currentProjectId !== prevProjectId
+
+  if (
+    !clipsChanged &&
+    !tracksChanged &&
+    !nameChanged &&
+    !aspectChanged &&
+    !bgChanged &&
+    !idChanged
+  ) {
+    return
+  }
+
+  prevClips = state.clips
+  prevTracks = state.tracks
+  prevName = state.projectName
+  prevAspect = state.aspectRatio
+  prevBg = state.canvasBackground
+  prevProjectId = state.currentProjectId
+
+  scheduleProjectAutoSave()
 })
+
+

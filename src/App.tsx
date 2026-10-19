@@ -8,7 +8,12 @@ import { FilterGalleryDrawer } from './components/FilterGalleryDrawer'
 import { QualityProDrawer } from './components/QualityProDrawer'
 import { AudioExtractorModal } from './components/AudioExtractorModal'
 import { ExportModal } from './components/ExportModal'
-import { restoreProjectFromStorage, useEditorStore } from './store/useEditorStore'
+import { ProjectsModal } from './components/ProjectsModal'
+import {
+  restoreProjectFromStorage,
+  flushProjectSaveSync,
+  useEditorStore,
+} from './store/useEditorStore'
 import { unlockAudioContext } from './engine/audioEngine'
 
 export function App(): React.ReactElement {
@@ -27,6 +32,30 @@ export function App(): React.ReactElement {
   useEffect(() => {
     void restoreProjectFromStorage()
   }, [])
+
+  // Immediate synchronous flush to disk on iOS Safari tab switch, app backgrounding, or tab close
+  useEffect(() => {
+    const handleFlush = () => {
+      flushProjectSaveSync()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushProjectSaveSync()
+      }
+    }
+
+    window.addEventListener('pagehide', handleFlush)
+    window.addEventListener('beforeunload', handleFlush)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('pagehide', handleFlush)
+      window.removeEventListener('beforeunload', handleFlush)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
 
   // Global iOS Safari WebKit First-Touch AudioContext Unlocker
   useEffect(() => {
@@ -142,10 +171,12 @@ export function App(): React.ReactElement {
         <ContextualBottomDock />
       </div>
 
-      {/* Dedicated Pro Modals (Extract Audio <1s + Export with WhatsApp Anti-Compression & Story Slicer) */}
+      {/* Dedicated Pro Modals (Projects Manager + Extract Audio <1s + Export with WhatsApp Anti-Compression & Story Slicer) */}
+      <ProjectsModal />
       <AudioExtractorModal />
       <ExportModal />
     </div>
+
   )
 }
 

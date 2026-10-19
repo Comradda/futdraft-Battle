@@ -367,3 +367,29 @@ export interface SnapGuideState {
   snapThirdsY: number | null // -0.333 or +0.333
   snapTimelineBeatTime: number | null
 }
+
+export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error'
+
+export interface SavedProjectMetadata {
+  id: string
+  name: string
+  aspectRatio: AspectRatio
+  clipCount: number
+  durationSec: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SerializedProjectData {
+  version: 1
+  id: string
+  projectName: string
+  aspectRatio: AspectRatio
+  canvasBackground: CanvasBackgroundConfig
+  tracks: TimelineTrack[]
+  clips: TimelineClip[]
+  playheadTime: number
+  savedAt: number
+  createdAt: number
+}
+
