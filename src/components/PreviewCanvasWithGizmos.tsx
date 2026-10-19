@@ -205,6 +205,16 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
 
       // Render WebGL composite frame
       if (rendererRef.current) {
+        const isMobileScreen =
+          typeof window !== 'undefined' && window.innerWidth < 768
+        const dynamicRenderScale = isMobileScreen
+          ? state.isPlaying
+            ? 0.45
+            : 0.65
+          : state.isPlaying
+            ? 0.65
+            : 0.85
+
         rendererRef.current.renderFrame({
           clips: state.clips,
           tracks: state.tracks,
@@ -212,7 +222,7 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
           isPlaying: state.isPlaying,
           aspectRatio: state.aspectRatio,
           canvasBackground: state.canvasBackground,
-          renderScale: state.isPlaying ? 0.65 : 0.85,
+          renderScale: dynamicRenderScale,
         })
 
         // Throttle histogram readout to ~10Hz when visible

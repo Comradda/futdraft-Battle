@@ -8,7 +8,7 @@ import { FilterGalleryDrawer } from './components/FilterGalleryDrawer'
 import { QualityProDrawer } from './components/QualityProDrawer'
 import { AudioExtractorModal } from './components/AudioExtractorModal'
 import { ExportModal } from './components/ExportModal'
-import { useEditorStore } from './store/useEditorStore'
+import { restoreProjectFromStorage, useEditorStore } from './store/useEditorStore'
 import { unlockAudioContext } from './engine/audioEngine'
 
 export function App(): React.ReactElement {
@@ -22,6 +22,11 @@ export function App(): React.ReactElement {
   )
   const freezeSelectedClip = useEditorStore((s) => s.freezeSelectedClip)
   const setAudioUnlocked = useEditorStore((s) => s.setAudioUnlocked)
+
+  // Auto-restore project and media blobs after reload or browser restart
+  useEffect(() => {
+    void restoreProjectFromStorage()
+  }, [])
 
   // Global iOS Safari WebKit First-Touch AudioContext Unlocker
   useEffect(() => {

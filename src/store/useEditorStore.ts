@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadMediaBlobUrl } from '../utils/opfsStorage'
 import type {
   ActiveDrawerType,
   AspectRatio,
@@ -1033,6 +1034,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setProjectName: (projectName) => set({ projectName }),
 
   resetProjectToDemo: () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(AUTOSAVE_STORAGE_KEY)
+    }
     get().pushHistory()
     set({
       tracks: INITIAL_TRACKS.map((t) => ({ ...t })),
@@ -2037,3 +2041,106 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }))
   },
 }))
+
+export const AUTOSAVE_STORAGE_KEY = 'capcut_studio_project_autosave_v1'
+
+export interface SerializedProjectData {
+  version: 1
+  projectName: string
+  aspectRatio: AspectRatio
+  canvasBackground: CanvasBackgroundConfig
+  tracks: TimelineTrack[]
+  clips: TimelineClip[]
+  playheadTime: number
+  savedAt: number
+}
+
+let autosaveTimeoutId: number | null = null
+
+export function scheduleProjectAutoSave(state: EditorState): void {
+  if (typeof window === 'undefined' || !window.localStorage) return
+  if (autosaveTimeoutId !== null) {
+    window.clearTimeout(autosaveTimeoutId)
+  }
+  autosaveTimeoutId = window.setTimeout(() => {
+    autosaveTimeoutId = null
+    try {
+      // Do not overwrite user save if timeline is completely empty
+      if (!state.clips || state.clips.length === 0) return
+
+      const data: SerializedProjectData = {
+        version: 1,
+        projectName: state.projectName,
+        aspectRatio: state.aspectRatio,
+        canvasBackground: state.canvasBackground,
+        tracks: state.tracks,
+        clips: state.clips,
+        playheadTime: state.playheadTime,
+        savedAt: Date.now(),
+      }
+      window.localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(data))
+    } catch {
+      // Ignore quota errors on mobile
+    }
+  }, 350)
+}
+
+/**
+ * Restores project edits and media blob URLs after page reloads or WebKit Jetsam restarts.
+ */
+export async function restoreProjectFromStorage(): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.localStorage) return false
+  try {
+    const raw = window.localStorage.getItem(AUTOSAVE_STORAGE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as Partial<SerializedProjectData>
+    if (!parsed || !Array.isArray(parsed.clips) || parsed.clips.length === 0) {
+      return false
+    }
+
+    const restoredClips: TimelineClip[] = []
+    for (const clip of parsed.clips) {
+      if (clip.mediaBlobId) {
+        // Re-acquire fresh Object URL for this browser session from OPFS/IndexedDB
+        const freshUrl = await loadMediaBlobUrl(clip.mediaBlobId)
+        if (freshUrl) {
+          restoredClips.push({ ...clip, mediaUrl: freshUrl })
+        } else {
+          restoredClips.push(clip)
+        }
+      } else {
+        restoredClips.push(clip)
+      }
+    }
+
+    useEditorStore.setState({
+      projectName: parsed.projectName || 'Reel_Master_Pro',
+      aspectRatio: parsed.aspectRatio || '9:16',
+      canvasBackground: parsed.canvasBackground || {
+        mode: 'blur',
+        blurLevel: 3,
+        solidColor: '#09090B',
+        gradientId: 'cyber_night',
+        gradientColors: ['#09090B', '#1A103C'],
+      },
+      tracks:
+        Array.isArray(parsed.tracks) && parsed.tracks.length > 0
+          ? parsed.tracks
+          : INITIAL_TRACKS,
+      clips: restoredClips,
+      playheadTime:
+        typeof parsed.playheadTime === 'number' ? parsed.playheadTime : 0,
+      selectedClipId: null,
+    })
+
+    return true
+  } catch (err) {
+    console.warn('Could not restore project from storage:', err)
+    return false
+  }
+}
+
+// Subscribe to store changes to automatically serialize project edits
+useEditorStore.subscribe((state) => {
+  scheduleProjectAutoSave(state)
+})

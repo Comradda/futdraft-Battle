@@ -1,8 +1,8 @@
 import { del, get, set } from 'idb-keyval'
 
 const OPFS_DIR_NAME = 'capcut_studio_media'
-// Only persist blobs <= 45 MB in background storage so large 4-minute+ iPhone .mov files load in 0ms
-const MAX_PERSIST_BLOB_BYTES = 45 * 1024 * 1024
+
+const OBJECT_URL_CACHE = new Map<string, string>()
 
 async function getOpfsRoot(): Promise<FileSystemDirectoryHandle | null> {
   try {
@@ -23,35 +23,44 @@ async function getOpfsRoot(): Promise<FileSystemDirectoryHandle | null> {
 /**
  * Returns an instant Object URL (`0ms` zero-copy reference to the file on disk)
  * so 1-minute, 4-minute, or 30-minute iPhone .mov/.mp4 videos appear immediately,
- * while persisting smaller blobs asynchronously in the background.
+ * and persists the blob asynchronously to OPFS/IndexedDB so it survives page reloads.
  */
 export async function storeMediaBlob(
   blobId: string,
   blob: Blob
 ): Promise<string> {
-  const instantUrl = URL.createObjectURL(blob)
-
-  if (blob.size <= MAX_PERSIST_BLOB_BYTES) {
-    void (async () => {
-      try {
-        const opfsDir = await getOpfsRoot()
-        if (opfsDir) {
-          const fileHandle = await opfsDir.getFileHandle(blobId, {
-            create: true,
-          })
-          if ('createWritable' in fileHandle) {
-            const writable = await fileHandle.createWritable()
-            await writable.write(blob)
-            await writable.close()
-            return
-          }
-        }
-        await set(`media_${blobId}`, blob)
-      } catch {
-        // Ignore background quota errors on mobile Safari
-      }
-    })()
+  const existingUrl = OBJECT_URL_CACHE.get(blobId)
+  if (existingUrl) {
+    return existingUrl
   }
+
+  const instantUrl = URL.createObjectURL(blob)
+  OBJECT_URL_CACHE.set(blobId, instantUrl)
+
+  // Persist asynchronously in background so edits survive crashes/reloads
+  void (async () => {
+    try {
+      const opfsDir = await getOpfsRoot()
+      if (opfsDir) {
+        const fileHandle = await opfsDir.getFileHandle(blobId, {
+          create: true,
+        })
+        if ('createWritable' in fileHandle) {
+          const writable = await fileHandle.createWritable()
+          await writable.write(blob)
+          await writable.close()
+          return
+        }
+      }
+    } catch {
+      // Fallback to IndexedDB
+    }
+    try {
+      await set(`media_${blobId}`, blob)
+    } catch (err) {
+      console.warn('Could not persist media blob:', err)
+    }
+  })()
 
   return instantUrl
 }
@@ -60,12 +69,19 @@ export async function storeMediaBlob(
  * Retrieves a stored media Blob from OPFS or IndexedDB and returns a fresh Object URL.
  */
 export async function loadMediaBlobUrl(blobId: string): Promise<string | null> {
+  const existingUrl = OBJECT_URL_CACHE.get(blobId)
+  if (existingUrl) {
+    return existingUrl
+  }
+
   const opfsDir = await getOpfsRoot()
   if (opfsDir) {
     try {
       const fileHandle = await opfsDir.getFileHandle(blobId)
       const file = await fileHandle.getFile()
-      return URL.createObjectURL(file)
+      const url = URL.createObjectURL(file)
+      OBJECT_URL_CACHE.set(blobId, url)
+      return url
     } catch {
       // Try IndexedDB fallback
     }
@@ -74,7 +90,9 @@ export async function loadMediaBlobUrl(blobId: string): Promise<string | null> {
   try {
     const blob = await get<Blob>(`media_${blobId}`)
     if (blob) {
-      return URL.createObjectURL(blob)
+      const url = URL.createObjectURL(blob)
+      OBJECT_URL_CACHE.set(blobId, url)
+      return url
     }
   } catch {
     // Ignore
@@ -104,7 +122,7 @@ export async function removeMediaBlob(blobId: string): Promise<void> {
  */
 export async function probeVideoFile(
   fileOrUrl: File | string,
-  thumbCount = 4
+  _thumbCount = 4
 ): Promise<{
   duration: number
   width: number
@@ -155,7 +173,7 @@ export async function probeVideoFile(
       })
     }, 2200)
 
-    video.onloadedmetadata = async () => {
+    video.onloadedmetadata = () => {
       let duration = video.duration
       // Handle iOS Safari Infinity duration edge-case on streamed .mov files
       if (!Number.isFinite(duration) || duration <= 0) {
@@ -163,59 +181,9 @@ export async function probeVideoFile(
       }
       const width = video.videoWidth || 1080
       const height = video.videoHeight || 1920
-      const thumbnails: string[] = []
 
-      // For very large files (> 120 MB), skip multi-seek thumbnail extraction so import is instant
-      const isLargeFile =
-        typeof fileOrUrl !== 'string' && fileOrUrl.size > 120 * 1024 * 1024
-
-      if (!isLargeFile && thumbCount > 0) {
-        try {
-          const canvas = document.createElement('canvas')
-          canvas.width = 80
-          canvas.height = 45
-          const ctx = canvas.getContext('2d')
-
-          if (ctx) {
-            const count = Math.min(4, thumbCount)
-            for (let i = 0; i < count; i++) {
-              const targetTime = Math.min(
-                duration - 0.05,
-                Math.max(0.05, (duration * (i + 0.5)) / count)
-              )
-              await new Promise<void>((seekResolve) => {
-                const seekTimer = window.setTimeout(() => {
-                  video.removeEventListener('seeked', onSeeked)
-                  seekResolve()
-                }, 220)
-                const onSeeked = () => {
-                  window.clearTimeout(seekTimer)
-                  video.removeEventListener('seeked', onSeeked)
-                  try {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-                    thumbnails.push(canvas.toDataURL('image/jpeg', 0.5))
-                  } catch {
-                    // Ignore
-                  }
-                  seekResolve()
-                }
-                video.addEventListener('seeked', onSeeked)
-                try {
-                  video.currentTime = targetTime
-                } catch {
-                  window.clearTimeout(seekTimer)
-                  video.removeEventListener('seeked', onSeeked)
-                  seekResolve()
-                }
-              })
-            }
-          }
-        } catch {
-          // Ignore thumbnail errors
-        }
-      }
-
-      finish({ duration, width, height, thumbnails })
+      // Instant return with zero extra hardware decoding passes
+      finish({ duration, width, height, thumbnails: [] })
     }
 
     video.onerror = () => {

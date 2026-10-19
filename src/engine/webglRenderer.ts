@@ -128,7 +128,27 @@ export class WebGLVideoRenderer {
   private histCtx: CanvasRenderingContext2D | null
 
   // Pool of HTMLVideoElements for imported real video files (.mp4, .mov, .webm)
+  // Shared by trackType + mediaUrl so cuts from the same video share 1 hardware decoder
   private videoPool = new Map<string, HTMLVideoElement>()
+  private lastFrameCanvasMap = new Map<string, HTMLCanvasElement>()
+
+  private getLastFrameCanvas(
+    key: string,
+    width: number,
+    height: number
+  ): HTMLCanvasElement {
+    let canvas = this.lastFrameCanvasMap.get(key)
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      this.lastFrameCanvasMap.set(key, canvas)
+    } else if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+    return canvas
+  }
 
   constructor(targetCanvas: HTMLCanvasElement) {
     this.targetCanvas = targetCanvas
@@ -316,9 +336,12 @@ export class WebGLVideoRenderer {
 
   /**
    * Retrieves or creates an HTMLVideoElement for real imported video clips.
+   * Keyed by trackType + mediaUrl so cuts and split segments of the same iPhone video
+   * share ONE hardware decoder instance, preventing WebKit Jetsam RAM crashes.
    */
   private getOrCreateVideoElement(clip: TimelineClip): HTMLVideoElement {
-    const existing = this.videoPool.get(clip.id)
+    const key = `${clip.trackType}_${clip.mediaUrl}`
+    const existing = this.videoPool.get(key)
     if (existing && existing.dataset.mediaUrl === clip.mediaUrl) {
       return existing
     }
@@ -339,7 +362,7 @@ export class WebGLVideoRenderer {
     video.src = clip.mediaUrl
     video.dataset.mediaUrl = clip.mediaUrl
     video.load()
-    this.videoPool.set(clip.id, video)
+    this.videoPool.set(key, video)
     return video
   }
 
@@ -366,7 +389,8 @@ export class WebGLVideoRenderer {
         !clip.isFrozen &&
         clip.speed.mode === 'normal'
       ) {
-        const video = this.videoPool.get(clip.id)
+        const key = `${clip.trackType}_${clip.mediaUrl}`
+        const video = this.videoPool.get(key)
         if (
           video &&
           !video.paused &&
@@ -390,7 +414,7 @@ export class WebGLVideoRenderer {
 
   /**
    * Synchronizes real video elements with timeline playhead, variable speed curves,
-   * and native hardware audio playback (preventing RAM spikes on 1–10 min iPhone .mov videos).
+   * and native hardware audio playback, pooling decoders to strictly prevent WebKit Jetsam RAM crashes.
    */
   public syncVideos(
     clips: TimelineClip[],
@@ -398,13 +422,20 @@ export class WebGLVideoRenderer {
     isPlaying: boolean,
     tracks: TimelineTrack[] = []
   ): void {
-    const activeIds = new Set(clips.map((c) => c.id))
-    for (const [id, video] of this.videoPool.entries()) {
-      if (!activeIds.has(id)) {
+    const allClipKeys = new Set(
+      clips
+        .filter((c) => c.trackType === 'video' || c.trackType === 'pip')
+        .map((c) => `${c.trackType}_${c.mediaUrl}`)
+    )
+
+    // Deallocate any video element whose media is completely removed from the timeline
+    for (const [key, video] of this.videoPool.entries()) {
+      if (!allClipKeys.has(key)) {
         video.pause()
         video.removeAttribute('src')
         video.load()
-        this.videoPool.delete(id)
+        this.videoPool.delete(key)
+        this.lastFrameCanvasMap.delete(key)
       }
     }
 
@@ -413,8 +444,37 @@ export class WebGLVideoRenderer {
       trackMutedMap.set(t.id, t.muted || !t.visible)
     }
 
-    for (const clip of clips) {
-      if (clip.trackType !== 'video' && clip.trackType !== 'pip') continue
+    // Only instantiate/sync videos for clips currently active under playheadTime!
+    const activeVideoClip = clips.find(
+      (c) =>
+        c.trackType === 'video' &&
+        playheadTime >= c.startTime &&
+        playheadTime < c.startTime + c.duration
+    )
+    const activePipClip = clips.find(
+      (c) =>
+        c.trackType === 'pip' &&
+        playheadTime >= c.startTime &&
+        playheadTime < c.startTime + c.duration
+    )
+
+    const activeClipsToSync: TimelineClip[] = []
+    if (activeVideoClip) activeClipsToSync.push(activeVideoClip)
+    if (activePipClip) activeClipsToSync.push(activePipClip)
+
+    const activeKeys = new Set(
+      activeClipsToSync.map((c) => `${c.trackType}_${c.mediaUrl}`)
+    )
+
+    // Pause any pooled video not currently on screen to keep iPhone GPU load near 0
+    for (const [key, video] of this.videoPool.entries()) {
+      if (!activeKeys.has(key)) {
+        if (!video.paused) video.pause()
+        video.muted = true
+      }
+    }
+
+    for (const clip of activeClipsToSync) {
       if (
         clip.mediaUrl.startsWith('demo://') ||
         clip.mediaUrl.startsWith('text://') ||
@@ -424,16 +484,6 @@ export class WebGLVideoRenderer {
       }
 
       const video = this.getOrCreateVideoElement(clip)
-      const isWithinClip =
-        playheadTime >= clip.startTime &&
-        playheadTime < clip.startTime + clip.duration
-
-      if (!isWithinClip) {
-        if (!video.paused) video.pause()
-        video.muted = true
-        continue
-      }
-
       const localTime = Math.max(0, playheadTime - clip.startTime)
       const targetSourceTime = computeRemappedSourceTime(clip, playheadTime)
       const localU =
@@ -475,10 +525,10 @@ export class WebGLVideoRenderer {
         if (Math.abs(video.playbackRate - clampedRate) > 0.04) {
           video.playbackRate = clampedRate
         }
-        // Only seek during playback if there is a major user jump (> 0.85s) so hardware decoding never stutters
+        // Continuous cuts across the same video file never trigger a seek!
         if (
           !video.seeking &&
-          Math.abs(video.currentTime - targetSourceTime) > 0.85
+          Math.abs(video.currentTime - targetSourceTime) > 0.45
         ) {
           try {
             video.currentTime = targetSourceTime
@@ -488,7 +538,6 @@ export class WebGLVideoRenderer {
         }
         if (video.paused && video.readyState >= 1) {
           void video.play().catch(() => {
-            // If iOS Safari blocks unmuted play before gesture, play muted first
             video.muted = true
             void video.play().catch(() => {})
           })
@@ -499,7 +548,7 @@ export class WebGLVideoRenderer {
         }
         if (
           !video.seeking &&
-          Math.abs(video.currentTime - targetSourceTime) > 0.04
+          Math.abs(video.currentTime - targetSourceTime) > 0.03
         ) {
           try {
             video.currentTime = targetSourceTime
@@ -887,13 +936,15 @@ export class WebGLVideoRenderer {
   }
 
   /**
-   * Draws a real HTMLVideoElement frame onto `this.sourceCanvas` with high-quality scaling.
+   * Draws a real HTMLVideoElement frame onto `this.sourceCanvas` with high-quality scaling,
+   * retaining the last valid decoded frame during cuts/seeks so the screen NEVER flashes black.
    */
   private drawVideoToSourceCanvas(
     video: HTMLVideoElement,
     _fallbackTime: number,
     width: number,
-    height: number
+    height: number,
+    cacheKey = 'video'
   ): void {
     const ctx = this.sourceCtx
     if (!ctx) return
@@ -903,14 +954,39 @@ export class WebGLVideoRenderer {
       this.sourceCanvas.height = height
     }
 
-    ctx.clearRect(0, 0, width, height)
-    if (video.readyState >= 1 && video.videoWidth > 0 && video.videoHeight > 0) {
+    const lastCanvas = this.getLastFrameCanvas(cacheKey, width, height)
+    const lastCtx = lastCanvas.getContext('2d')
+
+    if (
+      video.readyState >= 2 &&
+      !video.seeking &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    ) {
+      ctx.clearRect(0, 0, width, height)
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
       try {
         ctx.drawImage(video, 0, 0, width, height)
+        if (lastCtx) {
+          lastCtx.clearRect(0, 0, width, height)
+          lastCtx.drawImage(this.sourceCanvas, 0, 0, width, height)
+        }
       } catch {
-        // Ignore transient decode frame state on iOS Safari
+        if (lastCanvas.width > 0) {
+          ctx.drawImage(lastCanvas, 0, 0, width, height)
+        }
+      }
+    } else if (lastCanvas.width > 0) {
+      // Retain last decoded frame while seeking or cutting between scenes (prevents black screen)
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(lastCanvas, 0, 0, width, height)
+    } else if (video.readyState >= 1 && video.videoWidth > 0 && video.videoHeight > 0) {
+      ctx.clearRect(0, 0, width, height)
+      try {
+        ctx.drawImage(video, 0, 0, width, height)
+      } catch {
+        // Ignore
       }
     }
   }
@@ -1264,10 +1340,43 @@ export class WebGLVideoRenderer {
     const props = getInterpolatedClipProps(clip, playheadTime)
     const tf = clip.transform
 
-    const srcW =
+    let effectiveSource: CanvasImageSource = layerSource
+    let srcW =
       'videoWidth' in layerSource ? layerSource.videoWidth : layerSource.width
-    const srcH =
+    let srcH =
       'videoHeight' in layerSource ? layerSource.videoHeight : layerSource.height
+
+    if ('videoWidth' in layerSource) {
+      const cacheKey = `${clip.trackType}_${clip.mediaUrl}`
+      const lastCanvas = this.lastFrameCanvasMap.get(cacheKey)
+      if (
+        layerSource.readyState >= 2 &&
+        !layerSource.seeking &&
+        layerSource.videoWidth > 0 &&
+        layerSource.videoHeight > 0
+      ) {
+        if (lastCanvas) {
+          const lCtx = lastCanvas.getContext('2d')
+          if (lCtx) {
+            try {
+              lCtx.drawImage(
+                layerSource,
+                0,
+                0,
+                lastCanvas.width,
+                lastCanvas.height
+              )
+            } catch {
+              // Ignore
+            }
+          }
+        }
+      } else if (lastCanvas && lastCanvas.width > 0 && lastCanvas.height > 0) {
+        effectiveSource = lastCanvas
+        srcW = lastCanvas.width
+        srcH = lastCanvas.height
+      }
+    }
 
     if (srcW <= 0 || srcH <= 0) return
 
@@ -1302,7 +1411,7 @@ export class WebGLVideoRenderer {
       props.scale * (tf.flipV ? -1 : 1)
     )
 
-    ctx.drawImage(layerSource, sx, sy, sw, sh, destX, destY, destW, destH)
+    ctx.drawImage(effectiveSource, sx, sy, sw, sh, destX, destY, destW, destH)
     ctx.restore()
   }
 
@@ -1556,7 +1665,13 @@ export class WebGLVideoRenderer {
       } else {
         const videoEl = this.getOrCreateVideoElement(vClip)
         if (needsShader) {
-          this.drawVideoToSourceCanvas(videoEl, remappedTime, targetW, targetH)
+          this.drawVideoToSourceCanvas(
+            videoEl,
+            remappedTime,
+            targetW,
+            targetH,
+            `${vClip.trackType}_${vClip.mediaUrl}`
+          )
           const shaded = this.processThroughWebGL2(
             this.sourceCanvas,
             vClip,
@@ -1594,7 +1709,13 @@ export class WebGLVideoRenderer {
       } else {
         const videoEl = this.getOrCreateVideoElement(pipClip)
         if (needsShader) {
-          this.drawVideoToSourceCanvas(videoEl, remappedTime, targetW, targetH)
+          this.drawVideoToSourceCanvas(
+            videoEl,
+            remappedTime,
+            targetW,
+            targetH,
+            `${pipClip.trackType}_${pipClip.mediaUrl}`
+          )
           const shaded = this.processThroughWebGL2(
             this.sourceCanvas,
             pipClip,
@@ -1742,6 +1863,7 @@ export class WebGLVideoRenderer {
       video.load()
     }
     this.videoPool.clear()
+    this.lastFrameCanvasMap.clear()
 
     if (this.gl) {
       if (this.texture) this.gl.deleteTexture(this.texture)
