@@ -126,8 +126,13 @@ export const TopBar: React.FC = () => {
 
   return (
     <header className="safe-top relative z-40 flex h-[44px] min-h-[44px] w-full shrink-0 items-center justify-between border-b border-[#1F1F23] bg-[#09090B] px-2.5 select-none">
-      {/* Left section: Reset/Demo + Editable Project Title */}
+      {/* Left section: Brand Logo + Reset/Demo + Editable Project Title */}
       <div className="flex min-w-0 items-center gap-1.5">
+        <img
+          src="/favicon.svg"
+          alt="CapCut Studio Pro"
+          className="h-6 w-6 shrink-0 rounded-[6px] shadow-sm border border-white/10"
+        />
         <button
           type="button"
           onClick={handleResetClick}
