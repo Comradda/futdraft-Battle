@@ -266,7 +266,7 @@ export const ContextualBottomDock: React.FC = () => {
     }
 
     return (
-      <div className="bg-[#18181B]/98 border-t border-white/10 px-3 py-2.5 text-[#F4F4F6] shadow-2xl backdrop-blur-xl">
+      <div className="absolute bottom-full left-0 right-0 z-40 max-h-[45dvh] overflow-y-auto bg-[#18181B]/98 border-t border-white/15 px-3 py-2.5 text-[#F4F4F6] shadow-[0_-12px_32px_rgba(0,0,0,0.85)] backdrop-blur-xl">
         {/* Sub-Drawer Header */}
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#00E5FF]">
@@ -1245,6 +1245,10 @@ export const ContextualBottomDock: React.FC = () => {
   }
 
   // Build Dock Action Items according to CapCut's 3-State Machine
+  const toggleDrawer = (drawer: typeof activeDrawer) => {
+    setActiveDrawer(activeDrawer === drawer ? 'none' : drawer)
+  }
+
   const renderDockActions = () => {
     // STATE 1: NO CLIP SELECTED (Root Menu)
     if (!selectedClip) {
@@ -1298,35 +1302,35 @@ export const ContextualBottomDock: React.FC = () => {
           label: 'Efectos',
           icon: Sparkles,
           active: activeDrawer === 'effects',
-          onClick: () => setActiveDrawer('effects'),
+          onClick: () => toggleDrawer('effects'),
         },
         {
           id: 'filters',
           label: 'Filtros (32)',
           icon: Palette,
           active: activeDrawer === 'filters',
-          onClick: () => setActiveDrawer('filters'),
+          onClick: () => toggleDrawer('filters'),
         },
         {
           id: 'ratio',
           label: `Formato (${aspectRatio})`,
           icon: Frame,
           active: activeDrawer === 'aspect_ratio',
-          onClick: () => setActiveDrawer('aspect_ratio'),
+          onClick: () => toggleDrawer('aspect_ratio'),
         },
         {
           id: 'canvas',
           label: 'Fondo',
           icon: Image,
           active: activeDrawer === 'canvas_bg',
-          onClick: () => setActiveDrawer('canvas_bg'),
+          onClick: () => toggleDrawer('canvas_bg'),
         },
         {
           id: 'adjust',
           label: 'Ajustar',
           icon: Sliders,
           active: activeDrawer === 'adjust',
-          onClick: () => setActiveDrawer('adjust'),
+          onClick: () => toggleDrawer('adjust'),
         },
         {
           id: 'quality_pro',
@@ -1334,12 +1338,12 @@ export const ContextualBottomDock: React.FC = () => {
           icon: Cpu,
           accent: true,
           active: activeDrawer === 'quality_pro',
-          onClick: () => setActiveDrawer('quality_pro'),
+          onClick: () => toggleDrawer('quality_pro'),
         },
       ]
 
       return (
-        <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto touch-pan-x overscroll-x-contain px-2.5 py-1.5 no-scrollbar">
           {rootItems.map((item) => {
             const Icon = item.icon
             return (
@@ -1347,7 +1351,7 @@ export const ContextualBottomDock: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={item.onClick}
-                className={`flex flex-col items-center justify-center min-w-[62px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer ${
+                className={`flex flex-col items-center justify-center min-w-[58px] min-h-[46px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer active:scale-95 ${
                   item.active
                     ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/50'
                     : item.accent
@@ -1355,8 +1359,8 @@ export const ContextualBottomDock: React.FC = () => {
                       : 'text-[#F4F4F6] hover:bg-white/5'
                 }`}
               >
-                <Icon className="w-4 h-4 mb-1" />
-                <span className="text-[10px] font-medium leading-none whitespace-nowrap">
+                <Icon className="w-4 h-4 mb-1 shrink-0" />
+                <span className="text-[10px] font-medium leading-tight whitespace-nowrap">
                   {item.label}
                 </span>
               </button>
@@ -1380,14 +1384,14 @@ export const ContextualBottomDock: React.FC = () => {
           label: 'Fundido (Fade)',
           icon: Waves,
           active: activeDrawer === 'audio_fx',
-          onClick: () => setActiveDrawer('audio_fx'),
+          onClick: () => toggleDrawer('audio_fx'),
         },
         {
           id: 'volume',
           label: `Volumen (${selectedClip.audioFX.volume}%)`,
           icon: Volume2,
           active: activeDrawer === 'audio_fx',
-          onClick: () => setActiveDrawer('audio_fx'),
+          onClick: () => toggleDrawer('audio_fx'),
         },
         {
           id: 'beats',
@@ -1427,14 +1431,14 @@ export const ContextualBottomDock: React.FC = () => {
           label: 'Efectos de Voz',
           icon: Wand2,
           active: activeDrawer === 'voice_fx',
-          onClick: () => setActiveDrawer('voice_fx'),
+          onClick: () => toggleDrawer('voice_fx'),
         },
         {
           id: 'speed',
           label: 'Velocidad',
           icon: Gauge,
           active: activeDrawer === 'speed',
-          onClick: () => setActiveDrawer('speed'),
+          onClick: () => toggleDrawer('speed'),
         },
         {
           id: 'duplicate',
@@ -1452,11 +1456,11 @@ export const ContextualBottomDock: React.FC = () => {
       ]
 
       return (
-        <div className="flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto touch-pan-x overscroll-x-contain px-2.5 py-1.5 no-scrollbar">
           <button
             type="button"
             onClick={() => selectClip(null)}
-            className="flex items-center justify-center w-9 h-11 rounded-xl bg-white/10 hover:bg-white/15 text-white shrink-0"
+            className="flex items-center justify-center w-9 h-[46px] rounded-xl bg-white/10 hover:bg-white/15 text-white shrink-0 active:scale-95"
             title="Volver al menú principal"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -1469,7 +1473,7 @@ export const ContextualBottomDock: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={item.onClick}
-                className={`flex flex-col items-center justify-center min-w-[66px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer ${
+                className={`flex flex-col items-center justify-center min-w-[62px] min-h-[46px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer active:scale-95 ${
                   item.danger
                     ? 'text-red-400 hover:bg-red-500/15'
                     : item.active
@@ -1479,8 +1483,8 @@ export const ContextualBottomDock: React.FC = () => {
                         : 'text-[#F4F4F6] hover:bg-white/5'
                 }`}
               >
-                <Icon className="w-4 h-4 mb-1" />
-                <span className="text-[10px] font-medium leading-none whitespace-nowrap">
+                <Icon className="w-4 h-4 mb-1 shrink-0" />
+                <span className="text-[10px] font-medium leading-tight whitespace-nowrap">
                   {item.label}
                 </span>
               </button>
@@ -1500,7 +1504,7 @@ export const ContextualBottomDock: React.FC = () => {
               icon: Type,
               accent: true,
               active: activeDrawer === 'text_edit',
-              onClick: () => setActiveDrawer('text_edit'),
+              onClick: () => toggleDrawer('text_edit'),
             },
           ]
         : []),
@@ -1515,14 +1519,14 @@ export const ContextualBottomDock: React.FC = () => {
         label: 'Velocidad',
         icon: Gauge,
         active: activeDrawer === 'speed',
-        onClick: () => setActiveDrawer('speed'),
+        onClick: () => toggleDrawer('speed'),
       },
       {
         id: 'animation',
         label: 'Animación',
         icon: Sparkles,
         active: activeDrawer === 'animation',
-        onClick: () => setActiveDrawer('animation'),
+        onClick: () => toggleDrawer('animation'),
       },
       {
         id: 'delete',
@@ -1543,56 +1547,56 @@ export const ContextualBottomDock: React.FC = () => {
         icon: Cpu,
         accent: true,
         active: activeDrawer === 'quality_pro',
-        onClick: () => setActiveDrawer('quality_pro'),
+        onClick: () => toggleDrawer('quality_pro'),
       },
       {
         id: 'volume',
         label: 'Volumen',
         icon: Volume2,
         active: activeDrawer === 'audio_fx',
-        onClick: () => setActiveDrawer('audio_fx'),
+        onClick: () => toggleDrawer('audio_fx'),
       },
       {
         id: 'filters',
         label: 'Filtros',
         icon: Palette,
         active: activeDrawer === 'filters',
-        onClick: () => setActiveDrawer('filters'),
+        onClick: () => toggleDrawer('filters'),
       },
       {
         id: 'adjust',
         label: 'Ajustar (Color)',
         icon: Sliders,
         active: activeDrawer === 'adjust',
-        onClick: () => setActiveDrawer('adjust'),
+        onClick: () => toggleDrawer('adjust'),
       },
       {
         id: 'mask',
         label: 'Máscara',
         icon: Square,
         active: activeDrawer === 'mask',
-        onClick: () => setActiveDrawer('mask'),
+        onClick: () => toggleDrawer('mask'),
       },
       {
         id: 'chromakey',
         label: 'Chroma Key',
         icon: Pipette,
         active: activeDrawer === 'chromakey',
-        onClick: () => setActiveDrawer('chromakey'),
+        onClick: () => toggleDrawer('chromakey'),
       },
       {
         id: 'blend',
         label: 'Mezcla (Blend)',
         icon: Droplet,
         active: activeDrawer === 'blend',
-        onClick: () => setActiveDrawer('blend'),
+        onClick: () => toggleDrawer('blend'),
       },
       {
         id: 'transition',
         label: 'Transición',
         icon: Film,
         active: activeDrawer === 'transition',
-        onClick: () => setActiveDrawer('transition'),
+        onClick: () => toggleDrawer('transition'),
       },
       {
         id: 'freeze',
@@ -1605,7 +1609,7 @@ export const ContextualBottomDock: React.FC = () => {
         label: 'Transformar',
         icon: Crop,
         active: activeDrawer === 'transform',
-        onClick: () => setActiveDrawer('transform'),
+        onClick: () => toggleDrawer('transform'),
       },
       {
         id: 'duplicate',
@@ -1616,11 +1620,11 @@ export const ContextualBottomDock: React.FC = () => {
     ]
 
     return (
-      <div className="flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 no-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto touch-pan-x overscroll-x-contain px-2.5 py-1.5 no-scrollbar">
         <button
           type="button"
           onClick={() => selectClip(null)}
-          className="flex items-center justify-center w-9 h-11 rounded-xl bg-white/10 hover:bg-white/15 text-white shrink-0"
+          className="flex items-center justify-center w-9 h-[46px] rounded-xl bg-white/10 hover:bg-white/15 text-white shrink-0 active:scale-95"
           title="Volver al menú raíz"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -1633,7 +1637,7 @@ export const ContextualBottomDock: React.FC = () => {
               key={item.id}
               type="button"
               onClick={item.onClick}
-              className={`flex flex-col items-center justify-center min-w-[64px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer ${
+              className={`flex flex-col items-center justify-center min-w-[60px] min-h-[46px] py-1.5 px-2 rounded-xl transition shrink-0 cursor-pointer active:scale-95 ${
                 item.danger
                   ? 'text-red-400 hover:bg-red-500/15'
                   : item.active
@@ -1643,8 +1647,8 @@ export const ContextualBottomDock: React.FC = () => {
                       : 'text-[#F4F4F6] hover:bg-white/5'
               }`}
             >
-              <Icon className="w-4 h-4 mb-1" />
-              <span className="text-[10px] font-medium leading-none whitespace-nowrap">
+              <Icon className="w-4 h-4 mb-1 shrink-0" />
+              <span className="text-[10px] font-medium leading-tight whitespace-nowrap">
                 {item.label}
               </span>
             </button>
@@ -1654,10 +1658,10 @@ export const ContextualBottomDock: React.FC = () => {
         <button
           type="button"
           onClick={() => triggerVideoUpload('video')}
-          className="flex flex-col items-center justify-center min-w-[64px] py-1.5 px-2 rounded-xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 text-[#FE2C55] shrink-0"
+          className="flex flex-col items-center justify-center min-w-[60px] min-h-[46px] py-1.5 px-2 rounded-xl bg-[#FE2C55]/15 border border-[#FE2C55]/40 text-[#FE2C55] shrink-0 active:scale-95"
         >
-          <Plus className="w-4 h-4 mb-1" />
-          <span className="text-[10px] font-semibold leading-none whitespace-nowrap">
+          <Plus className="w-4 h-4 mb-1 shrink-0" />
+          <span className="text-[10px] font-semibold leading-tight whitespace-nowrap">
             + Video
           </span>
         </button>
@@ -1666,7 +1670,7 @@ export const ContextualBottomDock: React.FC = () => {
   }
 
   return (
-    <footer className="bg-[#1F1F23] border-t border-white/10 select-none pb-[env(safe-area-inset-bottom,0px)] z-30">
+    <footer className="relative shrink-0 bg-[#1F1F23] border-t border-white/10 select-none pt-0.5 pb-[max(env(safe-area-inset-bottom,0px),10px)] z-30">
       <input
         ref={fileInputRef}
         type="file"

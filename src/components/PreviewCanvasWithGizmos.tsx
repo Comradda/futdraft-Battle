@@ -148,26 +148,56 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
     let rafId = 0
     let lastFrameTime = performance.now()
     let lastHistogramUpdate = 0
+    let lastStoreSync = 0
+    let livePlayhead = useEditorStore.getState().playheadTime
+    let lastKnownStorePlayhead = livePlayhead
 
     const tick = (now: number) => {
-      const dt = Math.min(0.1, Math.max(0, (now - lastFrameTime) / 1000))
+      const dt = Math.min(0.065, Math.max(0, (now - lastFrameTime) / 1000))
       lastFrameTime = now
 
       const state = useEditorStore.getState()
-      let currentTime = state.playheadTime
+
+      // Detect if user scrubbed or jumped playhead externally
+      if (Math.abs(state.playheadTime - lastKnownStorePlayhead) > 0.05) {
+        livePlayhead = state.playheadTime
+        lastKnownStorePlayhead = state.playheadTime
+      }
 
       if (state.isPlaying) {
         const totalDur = state.getTotalDuration()
-        currentTime += dt
-        if (currentTime >= totalDur) {
-          currentTime = 0
+        const hwClock = rendererRef.current?.getActiveVideoClock(
+          state.clips,
+          livePlayhead
+        )
+        if (
+          hwClock !== null &&
+          hwClock !== undefined &&
+          Math.abs(hwClock - livePlayhead) < 0.75
+        ) {
+          livePlayhead = hwClock
+        } else {
+          livePlayhead += dt
         }
-        state.setPlayhead(currentTime, false)
+
+        if (livePlayhead >= totalDur) {
+          livePlayhead = 0
+          state.setPlayhead(0, false)
+          lastKnownStorePlayhead = 0
+        } else if (now - lastStoreSync >= 42) {
+          // Update React store at ~24Hz so UI timecode & timeline scroll stay smooth without 60Hz React DOM thrashing
+          lastStoreSync = now
+          state.setPlayhead(livePlayhead, false)
+          lastKnownStorePlayhead = livePlayhead
+        }
+      } else {
+        livePlayhead = state.playheadTime
+        lastKnownStorePlayhead = state.playheadTime
       }
 
       // Sync WebAudio playback & DSP chains
       audioEngine.sync({
-        playheadTime: currentTime,
+        playheadTime: livePlayhead,
         isPlaying: state.isPlaying,
         clips: state.clips,
         tracks: state.tracks,
@@ -178,7 +208,7 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
         rendererRef.current.renderFrame({
           clips: state.clips,
           tracks: state.tracks,
-          playheadTime: currentTime,
+          playheadTime: livePlayhead,
           isPlaying: state.isPlaying,
           aspectRatio: state.aspectRatio,
           canvasBackground: state.canvasBackground,
@@ -474,11 +504,11 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
 
   return (
     <>
-      {/* 1. Interactive Preview Viewport (42% height) */}
+      {/* 1. Interactive Preview Viewport (Flex-1 Responsive Height) */}
       <div
         ref={viewportContainerRef}
-        className={`relative flex w-full shrink-0 items-center justify-center overflow-hidden bg-[#09090B] select-none ${
-          isFullscreen ? 'fixed inset-0 z-50 h-full' : 'h-[42%] min-h-[195px]'
+        className={`relative flex w-full items-center justify-center overflow-hidden bg-[#09090B] select-none ${
+          isFullscreen ? 'fixed inset-0 z-50 h-full' : 'flex-1 min-h-[140px]'
         }`}
       >
         {/* Floating Broadcast RGB/IRE Histogram HUD */}

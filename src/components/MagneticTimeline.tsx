@@ -96,7 +96,9 @@ export const MagneticTimeline: React.FC = () => {
   const [viewportHalfWidth, setViewportHalfWidth] = useState(160)
 
   const isProgrammaticScrollRef = useRef(false)
+  const programmaticScrollTimerRef = useRef<number | null>(null)
   const isUserScrubbingScrollRef = useRef(false)
+  const isUserTouchingTimelineRef = useRef(false)
   const scrollTimeoutRef = useRef<number | null>(null)
 
   // Pinch-to-zoom state
@@ -132,20 +134,35 @@ export const MagneticTimeline: React.FC = () => {
   // Keep scroll position synced when playheadTime or timelineZoom changes programmatically
   useEffect(() => {
     const el = scrollContainerRef.current
-    if (!el || isUserScrubbingScrollRef.current || dragStateRef.current) return
+    if (
+      !el ||
+      isUserScrubbingScrollRef.current ||
+      isUserTouchingTimelineRef.current ||
+      dragStateRef.current
+    ) {
+      return
+    }
     const targetScroll = playheadTime * timelineZoom
-    if (Math.abs(el.scrollLeft - targetScroll) > 1.5) {
+    if (Math.abs(el.scrollLeft - targetScroll) > 1.0) {
       isProgrammaticScrollRef.current = true
       el.scrollLeft = targetScroll
-      window.requestAnimationFrame(() => {
+      if (programmaticScrollTimerRef.current !== null) {
+        window.clearTimeout(programmaticScrollTimerRef.current)
+      }
+      programmaticScrollTimerRef.current = window.setTimeout(() => {
         isProgrammaticScrollRef.current = false
-      })
+      }, 150)
     }
   }, [playheadTime, timelineZoom])
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el || isProgrammaticScrollRef.current || dragStateRef.current) return
+
+    // Ignore browser inertia/layout scroll events during playback unless the user is physically touching the timeline
+    if (isPlaying && !isUserTouchingTimelineRef.current) {
+      return
+    }
 
     isUserScrubbingScrollRef.current = true
     if (isPlaying) {
@@ -160,11 +177,14 @@ export const MagneticTimeline: React.FC = () => {
     }
     scrollTimeoutRef.current = window.setTimeout(() => {
       isUserScrubbingScrollRef.current = false
-    }, 120)
+      useEditorStore.getState().setSnapGuides({ snapTimelineBeatTime: null })
+    }, 180)
   }, [isPlaying, setIsPlaying, setPlayhead, timelineZoom])
 
-  // 2-Finger Pinch-to-Zoom on the timeline scroll container
+  // 2-Finger Pinch-to-Zoom & User Touch Tracking on the timeline scroll container
   const handleTouchStartContainer = (e: React.TouchEvent<HTMLDivElement>) => {
+    isUserTouchingTimelineRef.current = true
+    isProgrammaticScrollRef.current = false
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX
       const dy = e.touches[0].clientY - e.touches[1].clientY
@@ -186,6 +206,9 @@ export const MagneticTimeline: React.FC = () => {
 
   const handleTouchEndContainer = () => {
     pinchStartDistRef.current = null
+    window.setTimeout(() => {
+      isUserTouchingTimelineRef.current = false
+    }, 240)
   }
 
   // Pointer drag handlers for clip moving, trimming, and ruler scrubbing
@@ -324,7 +347,7 @@ export const MagneticTimeline: React.FC = () => {
 
   return (
     <section
-      className="capcut-timeline-surface relative flex h-[32%] min-h-[178px] w-full shrink-0 flex-col border-t border-[#1F1F23] select-none"
+      className="capcut-timeline-surface relative flex h-[27dvh] min-h-[150px] max-h-[205px] w-full shrink-0 flex-col border-t border-[#1F1F23] select-none"
       onClick={() => selectClip(null)}
     >
       {/* Top Timeline Ruler Header + One-Handed Zoom Controls */}

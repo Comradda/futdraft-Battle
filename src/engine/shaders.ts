@@ -793,6 +793,14 @@ float getLuma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
+float safePow(float baseVal, float expVal) {
+  return pow(max(baseVal, 0.0001), expVal);
+}
+
+vec3 safePow3(vec3 baseVal, vec3 expVal) {
+  return pow(max(baseVal, vec3(0.0001)), max(expVal, vec3(0.05)));
+}
+
 float hash12(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -855,19 +863,19 @@ void main() {
   // 1. GLSL Transitions (when u_transitionType > 0 and u_transitionProgress < 1.0)
   // ---------------------------------------------------------------------------
   float tp = clamp(u_transitionProgress, 0.0, 1.0);
-  float invTp = 1.0 - tp;
+  float invTp = max(0.0, 1.0 - tp);
 
   if (u_transitionType == 1) {
     // Dissolve
     transAlpha = smoothstep(0.0, 1.0, tp);
-  } else if (u_transitionType == 2) {
+  } else if (u_transitionType == 2 && invTp > 0.001) {
     // White Flash
     flashOverlay = vec3(1.0);
-    flashMix = pow(invTp, 1.6) * 0.92;
-  } else if (u_transitionType == 3) {
+    flashMix = safePow(invTp, 1.6) * 0.92;
+  } else if (u_transitionType == 3 && invTp > 0.001) {
     // Black Flash
     flashOverlay = vec3(0.0);
-    flashMix = pow(invTp, 1.5) * 0.95;
+    flashMix = safePow(invTp, 1.5) * 0.95;
   } else if (u_transitionType == 4) {
     // Whip Zoom
     float zoom = 1.0 + invTp * invTp * 1.45;
@@ -892,9 +900,10 @@ void main() {
 
   vec3 centerCol = sampleWithChromatic(uv, totalCA);
 
-  if (u_transitionType == 7 || u_transitionType == 4 || u_transitionType == 5) {
+  if ((u_transitionType == 7 || u_transitionType == 4 || u_transitionType == 5) && invTp > 0.001) {
     float blurStrength = invTp * invTp * 0.04;
-    vec2 dir = (u_transitionType == 4) ? normalize(uv - 0.5 + 0.0001) : vec2(1.0, 0.0);
+    vec2 rawDir = uv - 0.5;
+    vec2 dir = (u_transitionType == 4 && length(rawDir) > 0.001) ? normalize(rawDir) : vec2(1.0, 0.0);
     vec3 acc = centerCol;
     for (int i = 1; i <= 4; i++) {
       float f = float(i) * 0.25;
@@ -934,10 +943,10 @@ void main() {
     vec3 minRGB = min(workingCol, min(min(cN, cS), min(cW, cE)));
     vec3 maxRGB = max(workingCol, max(max(cN, cS), max(cW, cE)));
     vec3 amp = clamp(min(minRGB, 1.0 - maxRGB) / max(maxRGB, vec3(0.0001)), 0.0, 1.0);
-    amp = sqrt(amp);
+    amp = sqrt(max(amp, vec3(0.0)));
     float peak = -1.0 / mix(8.0, 4.6, clamp(totalSharpen, 0.0, 1.35));
     vec3 w = amp * peak;
-    vec3 rcpWeight = 1.0 / (1.0 + 4.0 * w);
+    vec3 rcpWeight = 1.0 / max(vec3(0.001), 1.0 + 4.0 * w);
     workingCol = clamp((workingCol + (cN + cS + cW + cE) * w) * rcpWeight, 0.0, 1.0);
   }
 
@@ -970,12 +979,13 @@ void main() {
   workingCol.r -= u_tint * 0.05;
   workingCol.b -= u_tint * 0.05;
 
-  // Highlights, Shadows, Whites, Blacks
-  float luma = getLuma(workingCol);
-  float shadowMask = pow(clamp(1.0 - luma, 0.0, 1.0), 1.7);
-  float highlightMask = pow(clamp(luma, 0.0, 1.0), 1.7);
-  float blackMask = pow(clamp(1.0 - luma, 0.0, 1.0), 3.2);
-  float whiteMask = pow(clamp(luma, 0.0, 1.0), 3.2);
+  // Highlights, Shadows, Whites, Blacks (safe polynomial + safePow so luma=0 or luma=1 never produces NaN)
+  float luma = clamp(getLuma(workingCol), 0.0, 1.0);
+  float invLuma = 1.0 - luma;
+  float shadowMask = safePow(invLuma, 1.7);
+  float highlightMask = safePow(luma, 1.7);
+  float blackMask = invLuma * invLuma * invLuma;
+  float whiteMask = luma * luma * luma;
 
   workingCol += u_shadows * shadowMask * 0.28;
   workingCol += u_highlights * highlightMask * 0.28;
@@ -993,7 +1003,7 @@ void main() {
   }
 
   // Saturation & Skin-Tone Protected Vibrance
-  luma = getLuma(workingCol);
+  luma = clamp(getLuma(workingCol), 0.0, 1.0);
   float maxC = max(workingCol.r, max(workingCol.g, workingCol.b));
   float minC = min(workingCol.r, min(workingCol.g, workingCol.b));
   float currentSat = maxC - minC;
@@ -1010,7 +1020,7 @@ void main() {
   if (u_filterIntensity > 0.001) {
     vec3 fCol = (u_filterMatrix * vec4(workingCol, 1.0)).rgb;
     fCol = max(vec3(0.0), fCol + u_filterLift);
-    fCol = pow(max(vec3(0.0001), fCol * u_filterGain), 1.0 / max(vec3(0.1), u_filterGamma));
+    fCol = safePow3(fCol * u_filterGain, 1.0 / max(vec3(0.1), u_filterGamma));
     fCol = (fCol - 0.5) * u_filterContrast + 0.5;
     float fLuma = getLuma(fCol);
     fCol = mix(vec3(fLuma), fCol, u_filterSaturation);

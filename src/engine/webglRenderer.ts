@@ -182,6 +182,8 @@ export class WebGLVideoRenderer {
     if (!program) return
     gl.attachShader(program, vs)
     gl.attachShader(program, fs)
+    gl.bindAttribLocation(program, 0, 'a_position')
+    gl.bindAttribLocation(program, 1, 'a_texCoord')
     gl.linkProgram(program)
 
     gl.deleteShader(vs)
@@ -284,8 +286,10 @@ export class WebGLVideoRenderer {
     video.playsInline = true
     video.setAttribute('webkit-playsinline', 'true')
     video.muted = true
-    video.crossOrigin = 'anonymous'
     video.preload = 'auto'
+    if (!clip.mediaUrl.startsWith('blob:')) {
+      video.crossOrigin = 'anonymous'
+    }
     video.src = clip.mediaUrl
     video.dataset.mediaUrl = clip.mediaUrl
     video.load()
@@ -294,12 +298,59 @@ export class WebGLVideoRenderer {
   }
 
   /**
-   * Synchronizes real video elements with timeline playhead and variable speed curves.
+   * Returns the hardware clock timeline position from the currently playing main video clip
+   * when playing a real imported video at normal speed, preventing any frame/audio seek stutter.
+   */
+  public getActiveVideoClock(
+    clips: TimelineClip[],
+    playheadTime: number
+  ): number | null {
+    for (const clip of clips) {
+      if (clip.trackType !== 'video') continue
+      if (
+        clip.mediaUrl.startsWith('demo://') ||
+        clip.mediaUrl.startsWith('text://') ||
+        clip.mediaUrl.startsWith('adjustment://')
+      ) {
+        continue
+      }
+      if (
+        playheadTime >= clip.startTime &&
+        playheadTime <= clip.startTime + clip.duration &&
+        !clip.isFrozen &&
+        clip.speed.mode === 'normal'
+      ) {
+        const video = this.videoPool.get(clip.id)
+        if (
+          video &&
+          !video.paused &&
+          !video.seeking &&
+          video.readyState >= 2
+        ) {
+          const speed = Math.max(0.1, clip.speed.normalSpeed)
+          const mappedTimelineTime =
+            clip.startTime + (video.currentTime - clip.sourceStartOffset) / speed
+          if (
+            mappedTimelineTime >= clip.startTime &&
+            mappedTimelineTime <= clip.startTime + clip.duration
+          ) {
+            return mappedTimelineTime
+          }
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Synchronizes real video elements with timeline playhead, variable speed curves,
+   * and native hardware audio playback (preventing RAM spikes on 1–10 min iPhone .mov videos).
    */
   public syncVideos(
     clips: TimelineClip[],
     playheadTime: number,
-    isPlaying: boolean
+    isPlaying: boolean,
+    tracks: TimelineTrack[] = []
   ): void {
     const activeIds = new Set(clips.map((c) => c.id))
     for (const [id, video] of this.videoPool.entries()) {
@@ -309,6 +360,11 @@ export class WebGLVideoRenderer {
         video.load()
         this.videoPool.delete(id)
       }
+    }
+
+    const trackMutedMap = new Map<string, boolean>()
+    for (const t of tracks) {
+      trackMutedMap.set(t.id, t.muted || !t.visible)
     }
 
     for (const clip of clips) {
@@ -324,40 +380,81 @@ export class WebGLVideoRenderer {
       const video = this.getOrCreateVideoElement(clip)
       const isWithinClip =
         playheadTime >= clip.startTime &&
-        playheadTime <= clip.startTime + clip.duration
+        playheadTime < clip.startTime + clip.duration
 
       if (!isWithinClip) {
         if (!video.paused) video.pause()
+        video.muted = true
         continue
       }
 
+      const localTime = Math.max(0, playheadTime - clip.startTime)
       const targetSourceTime = computeRemappedSourceTime(clip, playheadTime)
       const localU =
-        clip.duration > 0
-          ? (playheadTime - clip.startTime) / clip.duration
-          : 0
+        clip.duration > 0 ? Math.min(1, localTime / clip.duration) : 0
       const instSpeed = evaluateSpeedAtNormalizedTime(clip.speed, localU)
 
+      // Compute native audio volume & fade envelope for this video clip
+      const trackMuted = trackMutedMap.get(clip.trackId) ?? false
+      let fadeGain = 1.0
+      if (clip.audioFX.fadeIn > 0 && localTime < clip.audioFX.fadeIn) {
+        fadeGain *= Math.max(0, localTime / clip.audioFX.fadeIn)
+      }
+      const remaining = clip.duration - localTime
+      if (clip.audioFX.fadeOut > 0 && remaining < clip.audioFX.fadeOut) {
+        fadeGain *= Math.max(0, remaining / clip.audioFX.fadeOut)
+      }
+
+      const shouldMute =
+        !isPlaying ||
+        clip.isFrozen ||
+        trackMuted ||
+        clip.audioFX.muted ||
+        clip.audioFX.volume <= 0
+
+      video.muted = shouldMute
+      if (!shouldMute) {
+        video.volume = Math.max(
+          0,
+          Math.min(1, (clip.audioFX.volume / 100) * fadeGain)
+        )
+      }
+
+      if ('preservesPitch' in video) {
+        video.preservesPitch = clip.speed.keepPitch
+      }
+
       if (isPlaying && !clip.isFrozen) {
-        const clampedRate = Math.max(0.1, Math.min(4.0, instSpeed))
-        if (Math.abs(video.playbackRate - clampedRate) > 0.05) {
+        const clampedRate = Math.max(0.25, Math.min(4.0, instSpeed))
+        if (Math.abs(video.playbackRate - clampedRate) > 0.04) {
           video.playbackRate = clampedRate
         }
-        if (Math.abs(video.currentTime - targetSourceTime) > 0.35) {
+        // Only seek during playback if there is a major user jump (> 0.85s) so hardware decoding never stutters
+        if (
+          !video.seeking &&
+          Math.abs(video.currentTime - targetSourceTime) > 0.85
+        ) {
           try {
             video.currentTime = targetSourceTime
           } catch {
             // Ignore seek before metadata ready
           }
         }
-        if (video.paused && video.readyState >= 2) {
-          void video.play().catch(() => {})
+        if (video.paused && video.readyState >= 1) {
+          void video.play().catch(() => {
+            // If iOS Safari blocks unmuted play before gesture, play muted first
+            video.muted = true
+            void video.play().catch(() => {})
+          })
         }
       } else {
         if (!video.paused) {
           video.pause()
         }
-        if (Math.abs(video.currentTime - targetSourceTime) > 0.03) {
+        if (
+          !video.seeking &&
+          Math.abs(video.currentTime - targetSourceTime) > 0.04
+        ) {
           try {
             video.currentTime = targetSourceTime
           } catch {
@@ -744,11 +841,11 @@ export class WebGLVideoRenderer {
   }
 
   /**
-   * Draws a real HTMLVideoElement frame onto `this.sourceCanvas` with cover/fit scaling.
+   * Draws a real HTMLVideoElement frame onto `this.sourceCanvas` with high-quality scaling.
    */
   private drawVideoToSourceCanvas(
     video: HTMLVideoElement,
-    fallbackTime: number,
+    _fallbackTime: number,
     width: number,
     height: number
   ): void {
@@ -760,9 +857,11 @@ export class WebGLVideoRenderer {
       this.sourceCanvas.height = height
     }
 
-    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+    if (video.readyState >= 1 && video.videoWidth > 0 && video.videoHeight > 0) {
       ctx.fillStyle = '#000000'
       ctx.fillRect(0, 0, width, height)
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
 
       const vw = video.videoWidth
       const vh = video.videoHeight
@@ -771,10 +870,64 @@ export class WebGLVideoRenderer {
       const dh = vh * scale
       const dx = (width - dw) * 0.5
       const dy = (height - dh) * 0.5
-      ctx.drawImage(video, dx, dy, dw, dh)
-    } else {
-      this.renderProceduralScene('demo://cyberpunk_city', fallbackTime, width, height)
+      try {
+        ctx.drawImage(video, dx, dy, dw, dh)
+      } catch {
+        // Ignore transient decode frame state on iOS Safari
+      }
     }
+  }
+
+  /**
+   * Checks whether a clip currently requires WebGL2 fragment shader processing.
+   * If false, `sourceImage` is drawn directly at 100% native 2D canvas clarity.
+   */
+  private hasActiveShaderEffects(
+    clip: TimelineClip,
+    playheadTime: number,
+    extraCasBoost: number
+  ): boolean {
+    if (extraCasBoost > 0.001) return true
+    if (clip.qualityEnhancer?.enabled) return true
+    if (clip.chromaKey?.enabled) return true
+    if (clip.mask && clip.mask.shape !== 'none') return true
+    if (clip.filterId && clip.filterId !== 'none' && clip.filterIntensity > 0) {
+      return true
+    }
+
+    const localTime = Math.max(0, playheadTime - clip.startTime)
+    if (
+      clip.transitionIn &&
+      clip.transitionIn.type !== 'none' &&
+      clip.transitionIn.duration > 0 &&
+      localTime < clip.transitionIn.duration
+    ) {
+      return true
+    }
+
+    const cg = clip.colorGrading
+    if (
+      Math.abs(cg.exposure) > 0.1 ||
+      Math.abs(cg.contrast) > 0.1 ||
+      Math.abs(cg.brightness) > 0.1 ||
+      Math.abs(cg.highlights) > 0.1 ||
+      Math.abs(cg.shadows) > 0.1 ||
+      Math.abs(cg.whites) > 0.1 ||
+      Math.abs(cg.blacks) > 0.1 ||
+      Math.abs(cg.saturation) > 0.1 ||
+      Math.abs(cg.vibrance) > 0.1 ||
+      Math.abs(cg.temperature) > 0.1 ||
+      Math.abs(cg.tint) > 0.1 ||
+      cg.sharpness > 0.1 ||
+      cg.filmGrain > 0.1 ||
+      Math.abs(cg.vignette) > 0.1 ||
+      cg.chromaticAberration > 0.1 ||
+      cg.halation > 0.1
+    ) {
+      return true
+    }
+
+    return false
   }
 
   /**
@@ -788,9 +941,19 @@ export class WebGLVideoRenderer {
     playheadTime: number,
     extraCasBoost: number
   ): HTMLCanvasElement {
+    if (!this.hasActiveShaderEffects(clip, playheadTime, extraCasBoost)) {
+      return sourceImage
+    }
+
     const gl = this.gl
     const program = this.program
-    if (!gl || !program || !this.vao || !this.texture) {
+    if (
+      !gl ||
+      !program ||
+      !this.vao ||
+      !this.texture ||
+      gl.isContextLost()
+    ) {
       return sourceImage
     }
 
@@ -1064,6 +1227,11 @@ export class WebGLVideoRenderer {
 
     ctx.save()
     ctx.globalCompositeOperation = mapBlendModeToCanvasComposite(clip.blendMode)
+    if (layerSource === this.sourceCanvas) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, props.opacity / 100))
+    }
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
 
     const centerX = canvasW * 0.5 + (props.x * canvasW) * 0.5
     const centerY = canvasH * 0.5 + (props.y * canvasH) * 0.5
@@ -1215,7 +1383,7 @@ export class WebGLVideoRenderer {
       aspectRatio,
       canvasBackground,
       extraCasBoost = 0,
-      renderScale = 0.5,
+      renderScale = 0.85,
     } = params
 
     const ctx = this.targetCtx
@@ -1233,7 +1401,7 @@ export class WebGLVideoRenderer {
       this.targetCanvas.height = targetH
     }
 
-    this.syncVideos(clips, playheadTime, isPlaying)
+    this.syncVideos(clips, playheadTime, isPlaying, tracks)
 
     const visibleTrackTypes = new Set<string>()
     if (tracks.length === 0) {

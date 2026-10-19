@@ -1484,7 +1484,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     beatMarkers = [],
     startTime,
   }) => {
-    const { clips, playheadTime } = get()
+    const { clips, playheadTime, timelineZoom } = get()
     get().pushHistory()
 
     const trackIdMap: Record<TrackType, string> = {
@@ -1495,9 +1495,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       audio: 'track_audio',
     }
 
+    let baseClips = clips
+    // If importing a real video onto the main video track and only initial demo clips exist on it,
+    // replace the demo placeholders so the user's video starts cleanly at 00:00:00
+    const isRealMedia = !mediaUrl.startsWith('demo://')
+    if (trackType === 'video' && isRealMedia) {
+      const existingVideos = clips.filter((c) => c.trackType === 'video')
+      const allDemoVideos =
+        existingVideos.length > 0 &&
+        existingVideos.every((c) => c.mediaUrl.startsWith('demo://'))
+      if (allDemoVideos) {
+        baseClips = clips.filter(
+          (c) =>
+            !c.mediaUrl.startsWith('demo://') &&
+            c.mediaUrl !== 'text://main_title' &&
+            c.mediaUrl !== 'adjustment://master_grade'
+        )
+      }
+    }
+
     let computedStart = startTime ?? playheadTime
     if (trackType === 'video' && startTime === undefined) {
-      const videoClips = clips.filter((c) => c.trackType === 'video')
+      const videoClips = baseClips.filter((c) => c.trackType === 'video')
       computedStart = videoClips.reduce(
         (max, c) => Math.max(max, c.startTime + c.duration),
         0
@@ -1553,9 +1572,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       },
     }
 
+    // Automatically adjust zoom if a long video (1 min to 10+ min) is imported so it's easy to navigate
+    let nextZoom = timelineZoom
+    if (duration > 120) {
+      nextZoom = Math.min(timelineZoom, 14)
+    } else if (duration > 45) {
+      nextZoom = Math.min(timelineZoom, 28)
+    }
+
     set({
-      clips: [...clips, newClip],
+      clips: [...baseClips, newClip],
       selectedClipId: newId,
+      playheadTime: Number(computedStart.toFixed(2)),
+      isPlaying: false,
+      timelineZoom: nextZoom,
     })
     return newClip
   },

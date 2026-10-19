@@ -123,13 +123,19 @@ export function App(): React.ReactElement {
       {/* 4. Multi-Track Magnetic Timeline (32% height) */}
       <MagneticTimeline />
 
-      {/* Floating Specialized Drawers (Speed Curves, 32 Filters, Calidad Pro & Color Grading) */}
-      <SpeedCurveDrawer />
-      <FilterGalleryDrawer />
-      <QualityProDrawer />
-
-      {/* 5. CapCut Contextual Bottom Dock (Dynamic State Machine + Sub-Drawers) */}
-      <ContextualBottomDock />
+      {/* 5. CapCut Contextual Bottom Dock + Floating Slide-Up Drawers */}
+      <div className="relative w-full shrink-0 z-30">
+        <div className="
+          absolute bottom-full left-0 right-0 z-40
+          max-h-[46dvh] overflow-y-auto
+          shadow-[0_-12px_32px_rgba(0,0,0,0.82)]
+        ">
+          <SpeedCurveDrawer />
+          <FilterGalleryDrawer />
+          <QualityProDrawer />
+        </div>
+        <ContextualBottomDock />
+      </div>
 
       {/* Dedicated Pro Modals (Extract Audio <1s + Export with WhatsApp Anti-Compression & Story Slicer) */}
       <AudioExtractorModal />

@@ -799,21 +799,27 @@ class ProAudioEngine {
   }
 
   /**
-   * Resolves or synthesizes an AudioBuffer for a clip URL (including demo:// procedural tracks).
+   * Resolves or synthesizes an AudioBuffer for an audio-track clip URL.
+   * Video/PIP clips play their audio directly via their hardware HTMLVideoElement.
    */
   public getOrLoadClipBuffer(
     ctx: AudioContext,
     clip: TimelineClip
   ): AudioBuffer | null {
+    if (clip.trackType !== 'audio') {
+      return null
+    }
+
     const cacheKey = clip.mediaUrl
     if (this.bufferCache.has(cacheKey)) {
       return this.bufferCache.get(cacheKey)!
     }
 
     if (cacheKey.startsWith('demo://')) {
-      const bpm = cacheKey.includes('128') ? 128 : 124
-      const dur = Math.max(16, clip.sourceDuration || 16)
-      const buf = createProceduralSynthwaveBuffer(ctx, dur, bpm)
+      const bpm = 128
+      // Exact 4-bar seamless loop at 128 BPM (16 beats * 0.46875s = 7.5s)
+      const seamlessLoopDur = 16 * (60 / bpm)
+      const buf = createProceduralSynthwaveBuffer(ctx, seamlessLoopDur, bpm)
       this.bufferCache.set(cacheKey, buf)
       return buf
     }
@@ -882,34 +888,38 @@ class ProAudioEngine {
       trackMuteMap.set(track.id, track.muted || !track.visible)
     }
 
-    // Detect timeline seek jump (> 0.22s discontinuity)
+    // Detect explicit user timeline scrub jump (> 0.85s discontinuity)
     const timeDelta = Math.abs(playheadTime - this.lastPlayheadTime)
-    const didSeek = timeDelta > 0.22
+    const didSeek = timeDelta > 0.85
     this.lastPlayheadTime = playheadTime
 
-    // Determine active audible clips at playheadTime
+    // Determine active clips at playheadTime
     const activeClips = clips.filter((clip) => {
       if (clip.trackType === 'text' || clip.trackType === 'adjustment') {
         return false
       }
       if (clip.isFrozen) return false
-      if (playheadTime < clip.startTime || playheadTime >= clip.startTime + clip.duration) {
+      if (
+        playheadTime < clip.startTime ||
+        playheadTime >= clip.startTime + clip.duration
+      ) {
         return false
       }
       return true
     })
 
-    const activeClipIds = new Set(activeClips.map((c) => c.id))
+    const activeAudioClips = activeClips.filter((c) => c.trackType === 'audio')
+    const activeAudioIds = new Set(activeAudioClips.map((c) => c.id))
 
-    // Stop nodes for clips no longer active
+    // Stop nodes for audio clips no longer active or on major seek jump
     for (const [clipId, node] of this.activeNodes.entries()) {
-      if (!activeClipIds.has(clipId) || didSeek) {
+      if (!activeAudioIds.has(clipId) || didSeek) {
         this.stopClipNode(node)
         this.activeNodes.delete(clipId)
       }
     }
 
-    // Check if any Main Video (trackType === 'video') or Voiceover clip is active and unmuted
+    // Check if any real Main Video (trackType === 'video' and not demo://) or Voiceover clip is active and unmuted
     let mainVoiceOrVideoActive = false
     let measuredVoiceRms = 0
 
@@ -917,21 +927,27 @@ class ProAudioEngine {
       const trackMuted = trackMuteMap.get(clip.trackId) ?? false
       const isClipAudible =
         !trackMuted && !clip.audioFX.muted && clip.audioFX.volume > 0
-      const isVoiceClip =
-        clip.trackType === 'video' ||
-        clip.audioFX.voiceIsolate ||
-        clip.audioFX.voiceEffect !== 'none' ||
-        clip.name.toLowerCase().includes('voz') ||
-        clip.name.toLowerCase().includes('voice')
+      const isRealVideoVoice =
+        clip.trackType === 'video' && !clip.mediaUrl.startsWith('demo://')
+      const isVoiceAudioClip =
+        clip.trackType === 'audio' &&
+        (clip.audioFX.voiceIsolate ||
+          clip.audioFX.voiceEffect !== 'none' ||
+          clip.name.toLowerCase().includes('voz') ||
+          clip.name.toLowerCase().includes('voice'))
 
-      if (isClipAudible && isVoiceClip && !clip.audioFX.autoDucking) {
+      if (
+        isClipAudible &&
+        (isRealVideoVoice || isVoiceAudioClip) &&
+        !clip.audioFX.autoDucking
+      ) {
         mainVoiceOrVideoActive = true
         const existingNode = this.activeNodes.get(clip.id)
         if (existingNode) {
           const rms = this.measureAnalyserRms(existingNode.dsp.analyser)
           if (rms > measuredVoiceRms) measuredVoiceRms = rms
         } else {
-          measuredVoiceRms = Math.max(measuredVoiceRms, 0.15)
+          measuredVoiceRms = Math.max(measuredVoiceRms, 0.18)
         }
       }
     }
@@ -939,8 +955,8 @@ class ProAudioEngine {
     this.isCurrentlyDucking = mainVoiceOrVideoActive
     this.currentVoiceRms = measuredVoiceRms
 
-    // Start or update each active clip node
-    for (const clip of activeClips) {
+    // Start or update each active audio-track clip node
+    for (const clip of activeAudioClips) {
       const trackMuted = trackMuteMap.get(clip.trackId) ?? false
       const buffer = this.getOrLoadClipBuffer(ctx, clip)
       if (!buffer) continue
@@ -948,7 +964,10 @@ class ProAudioEngine {
       const localTime = Math.max(0, playheadTime - clip.startTime)
       const normalizedU =
         clip.duration > 0 ? Math.min(1, localTime / clip.duration) : 0
-      const instantSpeed = evaluateSpeedAtNormalizedTime(clip.speed, normalizedU)
+      const instantSpeed = evaluateSpeedAtNormalizedTime(
+        clip.speed,
+        normalizedU
+      )
 
       // Apply Deep Voice subtle pitch shift if keepPitch is off or preset is deep_voice
       const voicePitchRatio =
@@ -969,7 +988,9 @@ class ProAudioEngine {
       }
 
       const rawGain =
-        trackMuted || clip.audioFX.muted ? 0 : (clip.audioFX.volume / 100) * fadeGain
+        trackMuted || clip.audioFX.muted
+          ? 0
+          : (clip.audioFX.volume / 100) * fadeGain
       const shouldDuck = clip.audioFX.autoDucking && mainVoiceOrVideoActive
 
       let activeNode = this.activeNodes.get(clip.id)
@@ -1005,11 +1026,14 @@ class ProAudioEngine {
         }
         this.activeNodes.set(clip.id, activeNode)
       } else if (activeNode.sourceNode) {
-        activeNode.sourceNode.playbackRate.setTargetAtTime(
-          targetRate,
-          ctx.currentTime,
-          0.025
-        )
+        if (Math.abs(activeNode.playbackRate - targetRate) > 0.03) {
+          activeNode.playbackRate = targetRate
+          activeNode.sourceNode.playbackRate.setTargetAtTime(
+            targetRate,
+            ctx.currentTime,
+            0.025
+          )
+        }
       }
 
       activeNode.dsp.updateFX(clip.audioFX, rawGain, shouldDuck)
