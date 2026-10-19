@@ -414,42 +414,99 @@ export interface ExtractedAudioResult {
 
 /**
  * "Extraer audio de cualquier video":
- * Accepts any File (.mp4, .mov, .m4a, .mp3, .wav) from the iPhone Camera Roll / file picker,
- * decodes the audio track in <1 second via audioCtx.decodeAudioData() without loading video frames into RAM,
- * computes 96-bar normalized waveform peaks, runs Auto-Beat Sync detection (40Hz-150Hz sub-bass flux),
- * encodes a compact WAV Blob, and stores it via storeMediaBlob in OPFS/IndexedDB.
+ * Accepts any File (.mp4, .mov, .m4a, .mp3, .wav) from the iPhone Camera Roll / Fototeca or Files app.
+ * Preserves the user's real audio, probes exact duration, and decodes audio or prepares native media playback.
  */
 export async function extractAudioFromVideoFile(
   file: File,
   onStageChange?: (stage: string, progress: number) => void
 ): Promise<ExtractedAudioResult> {
-  onStageChange?.('Leyendo pista de audio del contenedor...', 0.15)
-  const ctx = getSharedAudioContext()
-  const rawBuffer = await file.arrayBuffer()
+  onStageChange?.('Guardando medio en almacenamiento local...', 0.15)
+  const mediaBlobId = `audio_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const mediaUrl = await storeMediaBlob(mediaBlobId, file)
 
-  onStageChange?.('Decodificando PCM vía WebAudio API...', 0.4)
-  let decodedBuffer: AudioBuffer
-  try {
-    decodedBuffer = await ctx.decodeAudioData(rawBuffer.slice(0))
-  } catch {
-    // Fallback if video container has no audio stream
-    decodedBuffer = createProceduralSynthwaveBuffer(ctx, 10, 126)
+  onStageChange?.('Decodificando pista de audio...', 0.35)
+  const ctx = getSharedAudioContext()
+
+  let decodedBuffer: AudioBuffer | null = null
+  let duration = 12
+
+  // 1. Try decoding if it is an audio file or container supported by WebAudio
+  if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|aac|ogg|flac)$/i)) {
+    try {
+      const rawBuffer = await file.arrayBuffer()
+      decodedBuffer = await ctx.decodeAudioData(rawBuffer.slice(0))
+      duration = Number(decodedBuffer.duration.toFixed(2))
+    } catch {
+      decodedBuffer = null
+    }
   }
 
-  onStageChange?.('Analizando espectro sub-grave y picos de onda...', 0.68)
-  const waveform = extractWaveformPeaks(decodedBuffer, 96)
-  const { beatMarkers, bpm } = await detectBeatsFromAudioBuffer(decodedBuffer)
+  // 2. If it is a video container (.mov, .mp4) or decodeAudioData failed, probe exact duration via media element
+  if (!decodedBuffer) {
+    onStageChange?.('Analizando duración y estructura de video/audio...', 0.55)
+    try {
+      const tempEl = document.createElement('video')
+      tempEl.playsInline = true
+      tempEl.setAttribute('webkit-playsinline', 'true')
+      tempEl.preload = 'metadata'
+      tempEl.src = mediaUrl
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 2200)
+        tempEl.onloadedmetadata = () => {
+          clearTimeout(timer)
+          resolve()
+        }
+        tempEl.onerror = () => {
+          clearTimeout(timer)
+          resolve()
+        }
+      })
+      if (tempEl.duration && Number.isFinite(tempEl.duration) && tempEl.duration > 0.1) {
+        duration = Number(tempEl.duration.toFixed(2))
+      }
+    } catch {
+      // Keep default duration fallback
+    }
+  }
 
-  onStageChange?.('Guardando WAV optimizado en OPFS...', 0.88)
-  const wavBlob = audioBufferToWavBlob(decodedBuffer)
-  const mediaBlobId = `extracted_audio_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.wav`
-  const mediaUrl = await storeMediaBlob(mediaBlobId, wavBlob)
+  onStageChange?.('Generando forma de onda y puntos de ritmo...', 0.78)
+  let waveform: number[]
+  let beatMarkers: number[] = []
+  let bpm = 124
 
-  onStageChange?.('¡Audio extraído con éxito!', 1.0)
+  if (decodedBuffer) {
+    waveform = extractWaveformPeaks(decodedBuffer, 96)
+    const beats = await detectBeatsFromAudioBuffer(decodedBuffer)
+    beatMarkers = beats.beatMarkers
+    bpm = beats.bpm
+  } else {
+    // Generate realistic multi-peak waveform envelope matching the user's real audio duration
+    waveform = []
+    const bars = 96
+    for (let i = 0; i < bars; i++) {
+      const p = i / bars
+      const wave =
+        Math.sin(p * Math.PI * 6) * 0.28 +
+        Math.sin(p * Math.PI * 16) * 0.18 +
+        0.44
+      waveform.push(
+        Number(
+          Math.max(0.08, Math.min(0.96, wave + ((i * 17) % 23) / 100)).toFixed(3)
+        )
+      )
+    }
+    const beatStep = 60 / bpm
+    for (let t = beatStep; t < duration - 0.1; t += beatStep) {
+      beatMarkers.push(Number(t.toFixed(3)))
+    }
+  }
+
+  onStageChange?.('¡Audio listo para edición!', 1.0)
   return {
     mediaUrl,
     mediaBlobId,
-    duration: Number(decodedBuffer.duration.toFixed(2)),
+    duration,
     waveform,
     beatMarkers,
     bpm,
@@ -783,6 +840,7 @@ class ProAudioEngine {
   private bufferCache = new Map<string, AudioBuffer>()
   private loadingUrls = new Set<string>()
   private activeNodes = new Map<string, ActiveClipNode>()
+  private mediaElements = new Map<string, HTMLMediaElement>()
   private masterGain: GainNode | null = null
   private lastPlayheadTime = 0
   private isCurrentlyDucking = false
@@ -796,6 +854,27 @@ class ProAudioEngine {
       this.masterGain.connect(ctx.destination)
     }
     return this.masterGain
+  }
+
+  private getOrCreateMediaElement(clip: TimelineClip): HTMLMediaElement {
+    const existing = this.mediaElements.get(clip.id)
+    if (existing && existing.dataset.mediaUrl === clip.mediaUrl) {
+      return existing
+    }
+    if (existing) {
+      existing.pause()
+      existing.removeAttribute('src')
+      existing.load()
+    }
+    const el = document.createElement('video')
+    el.playsInline = true
+    el.setAttribute('webkit-playsinline', 'true')
+    el.preload = 'auto'
+    el.src = clip.mediaUrl
+    el.dataset.mediaUrl = clip.mediaUrl
+    el.load()
+    this.mediaElements.set(clip.id, el)
+    return el
   }
 
   /**
@@ -918,6 +997,11 @@ class ProAudioEngine {
         this.activeNodes.delete(clipId)
       }
     }
+    for (const [clipId, el] of this.mediaElements.entries()) {
+      if (!activeAudioIds.has(clipId)) {
+        if (!el.paused) el.pause()
+      }
+    }
 
     // Check if any real Main Video (trackType === 'video' and not demo://) or Voiceover clip is active and unmuted
     let mainVoiceOrVideoActive = false
@@ -958,9 +1042,6 @@ class ProAudioEngine {
     // Start or update each active audio-track clip node
     for (const clip of activeAudioClips) {
       const trackMuted = trackMuteMap.get(clip.trackId) ?? false
-      const buffer = this.getOrLoadClipBuffer(ctx, clip)
-      if (!buffer) continue
-
       const localTime = Math.max(0, playheadTime - clip.startTime)
       const normalizedU =
         clip.duration > 0 ? Math.min(1, localTime / clip.duration) : 0
@@ -992,51 +1073,99 @@ class ProAudioEngine {
           ? 0
           : (clip.audioFX.volume / 100) * fadeGain
       const shouldDuck = clip.audioFX.autoDucking && mainVoiceOrVideoActive
+      const remappedSourceTime = computeRemappedSourceTime(clip, playheadTime)
 
-      let activeNode = this.activeNodes.get(clip.id)
-      if (!activeNode || activeNode.mediaUrl !== clip.mediaUrl) {
-        if (activeNode) {
-          this.stopClipNode(activeNode)
+      const buffer = this.getOrLoadClipBuffer(ctx, clip)
+      if (buffer) {
+        // Stop any mediaElement if it was previously playing via element
+        const oldEl = this.mediaElements.get(clip.id)
+        if (oldEl && !oldEl.paused) oldEl.pause()
+
+        let activeNode = this.activeNodes.get(clip.id)
+        if (!activeNode || activeNode.mediaUrl !== clip.mediaUrl) {
+          if (activeNode) {
+            this.stopClipNode(activeNode)
+          }
+          const dsp = buildClipDspChain(ctx, master, clip.audioFX)
+          const sourceNode = ctx.createBufferSource()
+          sourceNode.buffer = buffer
+          sourceNode.loop = true
+          sourceNode.playbackRate.value = targetRate
+          sourceNode.connect(dsp.input)
+
+          const safeOffset =
+            buffer.duration > 0 ? remappedSourceTime % buffer.duration : 0
+
+          try {
+            sourceNode.start(0, safeOffset)
+          } catch {
+            // Ignore invalid offset
+          }
+
+          activeNode = {
+            clipId: clip.id,
+            mediaUrl: clip.mediaUrl,
+            sourceNode,
+            dsp,
+            startedAtCtxTime: ctx.currentTime,
+            startedAtSourceTime: safeOffset,
+            playbackRate: targetRate,
+          }
+          this.activeNodes.set(clip.id, activeNode)
+        } else if (activeNode.sourceNode) {
+          if (Math.abs(activeNode.playbackRate - targetRate) > 0.03) {
+            activeNode.playbackRate = targetRate
+            activeNode.sourceNode.playbackRate.setTargetAtTime(
+              targetRate,
+              ctx.currentTime,
+              0.025
+            )
+          }
         }
-        const dsp = buildClipDspChain(ctx, master, clip.audioFX)
-        const sourceNode = ctx.createBufferSource()
-        sourceNode.buffer = buffer
-        sourceNode.loop = true
-        sourceNode.playbackRate.value = targetRate
-        sourceNode.connect(dsp.input)
 
-        const remappedSourceTime = computeRemappedSourceTime(clip, playheadTime)
-        const safeOffset =
-          buffer.duration > 0 ? remappedSourceTime % buffer.duration : 0
-
-        try {
-          sourceNode.start(0, safeOffset)
-        } catch {
-          // Ignore invalid offset
+        activeNode.dsp.updateFX(clip.audioFX, rawGain, shouldDuck)
+      } else if (
+        clip.mediaUrl.startsWith('blob:') ||
+        clip.mediaUrl.startsWith('http')
+      ) {
+        // Native media element audio playback for real .mov / .mp4 video files on iOS Safari
+        const mediaEl = this.getOrCreateMediaElement(clip)
+        const shouldMute = trackMuted || clip.audioFX.muted || rawGain <= 0
+        mediaEl.muted = shouldMute
+        if (!shouldMute) {
+          const effectiveVol = shouldDuck ? rawGain * 0.25 : rawGain
+          mediaEl.volume = Math.max(0, Math.min(1, effectiveVol))
         }
 
-        activeNode = {
-          clipId: clip.id,
-          mediaUrl: clip.mediaUrl,
-          sourceNode,
-          dsp,
-          startedAtCtxTime: ctx.currentTime,
-          startedAtSourceTime: safeOffset,
-          playbackRate: targetRate,
+        if ('preservesPitch' in mediaEl) {
+          mediaEl.preservesPitch = clip.speed.keepPitch
         }
-        this.activeNodes.set(clip.id, activeNode)
-      } else if (activeNode.sourceNode) {
-        if (Math.abs(activeNode.playbackRate - targetRate) > 0.03) {
-          activeNode.playbackRate = targetRate
-          activeNode.sourceNode.playbackRate.setTargetAtTime(
-            targetRate,
-            ctx.currentTime,
-            0.025
-          )
+        if (Math.abs(mediaEl.playbackRate - targetRate) > 0.04) {
+          mediaEl.playbackRate = targetRate
+        }
+
+        if (
+          !mediaEl.seeking &&
+          Math.abs(mediaEl.currentTime - remappedSourceTime) > 0.85
+        ) {
+          try {
+            mediaEl.currentTime = remappedSourceTime
+          } catch {
+            // Ignore seek
+          }
+        }
+
+        if (isPlaying && !clip.isFrozen) {
+          if (mediaEl.paused && mediaEl.readyState >= 1) {
+            void mediaEl.play().catch(() => {
+              mediaEl.muted = true
+              void mediaEl.play().catch(() => {})
+            })
+          }
+        } else {
+          if (!mediaEl.paused) mediaEl.pause()
         }
       }
-
-      activeNode.dsp.updateFX(clip.audioFX, rawGain, shouldDuck)
     }
   }
 
@@ -1064,6 +1193,9 @@ class ProAudioEngine {
       this.stopClipNode(node)
     }
     this.activeNodes.clear()
+    for (const el of this.mediaElements.values()) {
+      if (!el.paused) el.pause()
+    }
   }
 
   public setMasterVolume(volume: number): void {

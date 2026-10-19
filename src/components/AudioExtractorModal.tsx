@@ -71,8 +71,25 @@ export const AudioExtractorModal: React.FC = () => {
       })
       const dt = Math.max(85, Math.round(performance.now() - t0))
       setElapsedMs(dt)
-      setExtractedName(`🎵 Audio_${file.name.replace(/\.[^/.]+$/, '')}.wav`)
+      const audioName = `🎵 Audio_${file.name.replace(/\.[^/.]+$/, '')}`
+      setExtractedName(audioName)
       setExtractedResult(result)
+
+      // Automatically place on multi-layer audio track at 00:00:00 immediately
+      addMediaClip({
+        trackType: 'audio',
+        name: audioName,
+        mediaUrl: result.mediaUrl,
+        mediaBlobId: result.mediaBlobId,
+        sourceDuration: result.duration,
+        waveform: result.waveform,
+        beatMarkers: result.beatMarkers,
+        startTime: 0,
+      })
+
+      window.setTimeout(() => {
+        handleClose()
+      }, 650)
     } finally {
       setIsProcessing(false)
     }

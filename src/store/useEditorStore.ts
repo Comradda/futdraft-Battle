@@ -1496,8 +1496,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
 
     let baseClips = clips
-    // If importing a real video onto the main video track and only initial demo clips exist on it,
-    // replace the demo placeholders so the user's video starts cleanly at 00:00:00
+    // If importing a real video or audio track, replace initial demo placeholders so user media starts cleanly at 00:00:00
     const isRealMedia = !mediaUrl.startsWith('demo://')
     if (trackType === 'video' && isRealMedia) {
       const existingVideos = clips.filter((c) => c.trackType === 'video')
@@ -1511,6 +1510,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             c.mediaUrl !== 'text://main_title' &&
             c.mediaUrl !== 'adjustment://master_grade'
         )
+      }
+    } else if (trackType === 'audio' && isRealMedia) {
+      const existingAudios = clips.filter((c) => c.trackType === 'audio')
+      const allDemoAudios =
+        existingAudios.length > 0 &&
+        existingAudios.every((c) => c.mediaUrl.startsWith('demo://'))
+      if (allDemoAudios) {
+        baseClips = baseClips.filter((c) => !c.mediaUrl.startsWith('demo://'))
       }
     }
 

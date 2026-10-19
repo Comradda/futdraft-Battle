@@ -212,6 +212,7 @@ export const PreviewCanvasWithGizmos: React.FC = () => {
           isPlaying: state.isPlaying,
           aspectRatio: state.aspectRatio,
           canvasBackground: state.canvasBackground,
+          renderScale: state.isPlaying ? 0.65 : 0.85,
         })
 
         // Throttle histogram readout to ~10Hz when visible
